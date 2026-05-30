@@ -584,6 +584,17 @@ export default function App() {
             <div style={{ fontSize:'0.8rem', color:S.text2, marginBottom:16 }}>Connesso come: <span style={{ color:S.text }}>{session.user.email}</span></div>
             <button onClick={()=>supabase.auth.signOut()} style={{ width:'100%', padding:12, background:'transparent', border:`1px solid ${S.border}`, borderRadius:10, color:S.text2, fontSize:'0.85rem', cursor:'pointer' }}>🚪 Esci dall'account</button>
           </Card>
+          <Card>
+            <CardTitle>☁️ Backup Google Sheets</CardTitle>
+            <div style={{ fontSize:'0.75rem', color:S.text2, marginBottom:12, lineHeight:1.6 }}>Inserisci la tua email per attivare il backup automatico su Google Sheets ad ogni salvataggio.</div>
+            <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+              <div>
+                <label style={{ fontSize:'0.62rem', textTransform:'uppercase', color:S.text2, display:'block', marginBottom:6 }}>La tua email admin</label>
+                <input type="email" defaultValue={localStorage.getItem('mgs5_adminEmail')||''} onChange={e=>localStorage.setItem('mgs5_adminEmail', e.target.value.trim())} placeholder="tua@email.com" style={inputSt}/>
+              </div>
+              <div style={{ fontSize:'0.65rem', color:S.accent, lineHeight:1.6 }}>⚡ Il backup su Sheets si attiva automaticamente solo per questa email</div>
+            </div>
+          </Card>
           <Card style={{ borderColor:'rgba(239,68,68,0.3)' }}>
             <CardTitle style={{ color:'#ef4444' }}>⚠️ Zona pericolosa</CardTitle>
             <button onClick={()=>setConfirmIdx('all')} style={{ width:'100%', padding:12, background:'transparent', border:'1px solid rgba(239,68,68,0.4)', borderRadius:10, color:'#ef4444', fontSize:'0.85rem', cursor:'pointer' }}>🗑 Cancella tutti i dati</button>

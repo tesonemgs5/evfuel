@@ -434,7 +434,7 @@ export default function App() {
       <div style={{ position:'sticky', top:0, zIndex:100, background:'rgba(10,15,30,0.95)', backdropFilter:'blur(20px)', borderBottom:`1px solid ${S.border}`, padding:'12px 16px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
           <div style={{ fontSize:'1.1rem', fontWeight:800, letterSpacing:'0.05em' }}>MG<span style={{color:'#ef4444'}}>S5</span></div>
-          <div style={{ fontSize:'0.6rem', color:S.text2, padding:'2px 8px', background:'rgba(255,255,255,0.05)', borderRadius:20 }}>{session.user.email.split('@')[0]}</div>
+          <div style={{ fontSize:'0.75rem', color:S.text2, padding:'2px 8px', background:'rgba(255,255,255,0.05)', borderRadius:20 }}>{session.user.email.split('@')[0]}</div>
         </div>
         <div style={{ display:'flex', alignItems:'center', gap:16 }}>
           <div style={{ textAlign:'right' }}>
@@ -594,6 +594,7 @@ export default function App() {
               </div>
               <div style={{ fontSize:'0.65rem', color:S.accent, lineHeight:1.6 }}>⚡ Il backup su Sheets si attiva automaticamente solo per questa email</div>
             </div>
+            <button onClick={async()=>{ const adminEmail=localStorage.getItem('mgs5_adminEmail')||''; if(!adminEmail||session.user.email!==adminEmail){showToast('❌ Email non corrisponde','#ef4444');return;} try{ await fetch(SHEETS_URL+'?action=write',{method:'POST',body:JSON.stringify(ricariche.map(r=>({...r,pctPrima:r.pctPrima>1?r.pctPrima/100:r.pctPrima,pctDopo:r.pctDopo>1?r.pctDopo/100:r.pctDopo})))}); showToast('☁️ Backup inviato a Sheets!'); }catch(e){showToast('❌ Errore backup','#ef4444');} }} style={{ width:'100%', marginTop:10, padding:12, background:'rgba(16,185,129,0.1)', border:'1px solid rgba(16,185,129,0.35)', borderRadius:10, color:'#10b981', fontSize:'0.85rem', fontWeight:700, cursor:'pointer' }}>☁️ Invia backup a Google Sheets</button>
           </Card>
           <Card style={{ borderColor:'rgba(239,68,68,0.3)' }}>
             <CardTitle style={{ color:'#ef4444' }}>⚠️ Zona pericolosa</CardTitle>

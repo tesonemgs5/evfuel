@@ -543,8 +543,11 @@ export default function App() {
 
         {view==='export'&&<>
           <Card>
-            <CardTitle>Esporta dati</CardTitle>
-            <button onClick={esportaCSV} style={{ width:'100%', padding:'16px 0', background:'rgba(0,229,255,0.1)', border:`1px solid rgba(0,229,255,0.3)`, borderRadius:14, color:S.accent, fontSize:'0.85rem', fontWeight:800, textTransform:'uppercase', letterSpacing:'0.06em', cursor:'pointer', marginBottom:10 }}>📊 Esporta CSV</button>
+            <CardTitle>Archivio dati</CardTitle>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:10 }}>
+              <button onClick={esportaCSV} style={{ padding:'16px 0', background:'rgba(0,229,255,0.1)', border:`1px solid rgba(0,229,255,0.3)`, borderRadius:14, color:S.accent, fontSize:'0.85rem', fontWeight:800, textTransform:'uppercase', letterSpacing:'0.06em', cursor:'pointer' }}>📊 Esporta CSV</button>
+              <button onClick={()=>{ const inp=document.createElement('input'); inp.type='file'; inp.accept='.json,application/json'; inp.onchange=importaJSON; inp.click(); }} style={{ padding:'16px 0', background:'rgba(124,58,237,0.1)', border:'1px solid rgba(124,58,237,0.35)', borderRadius:14, color:'#a78bfa', fontSize:'0.85rem', fontWeight:800, textTransform:'uppercase', letterSpacing:'0.06em', cursor:'pointer' }}>💾 Importa JSON</button>
+            </div>
           </Card>
           <Card>
             <CardTitle>Riepilogo mensile</CardTitle>

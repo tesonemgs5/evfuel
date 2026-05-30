@@ -410,6 +410,22 @@ export default function App() {
     showToast('📊 CSV esportato');
   }
 
+  function importaJSON(e) {
+    const file=e.target.files[0]; if(!file) return;
+    const reader=new FileReader();
+    reader.onload=(ev)=>{
+      try {
+        const data=JSON.parse(ev.target.result);
+        if (data.ricariche) {
+          const nuove=ricalcolaKmParziali(data.ricariche.sort((a,b)=>(a.km||0)-(b.km||0)).map(sanitizzaRicarica));
+          nuove.forEach(async(r)=>{ const dbRecord={user_id:session.user.id,data:r.data,luogo:r.luogo||null,km:r.km,km_parziali:r.kmParziali,pct_prima:r.pctPrima,pct_dopo:r.pctDopo,kwh_eff:r.kwhEff,kwh_teor:r.kwhTeor,prezzo_kwh:r.prezzoKwh,costo:r.costo,kwh_100:r.kwh100}; await supabase.from('ricariche').insert(dbRecord); });
+          showToast('✅ Importate '+nuove.length+' ricariche!'); setTimeout(()=>loadRicariche(),2000); setView('home');
+        }
+      } catch { showToast('❌ File non valido','#ef4444'); }
+    };
+    reader.readAsText(file); e.target.value='';
+  }
+
   const costoTot=ricariche.reduce((s,r)=>s+r.costo,0);
   const kmMax=ricariche.length?Math.max(...ricariche.map(r=>r.km||0)):null;
   const perMese={};

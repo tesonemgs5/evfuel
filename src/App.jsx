@@ -614,11 +614,11 @@ export default function App() {
             <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
               <div>
                 <label style={{ fontSize:'0.62rem', textTransform:'uppercase', color:S.text2, display:'block', marginBottom:6 }}>La tua email admin</label>
-                <input type="email" defaultValue={localStorage.getItem('mgs5_adminEmail')||''} onChange={e=>localStorage.setItem('mgs5_adminEmail', e.target.value.trim())} placeholder="tua@email.com" style={inputSt}/>
+                <input type="email" defaultValue={localStorage.getItem('mgs5_adminEmail')||''} onBlur={e=>{localStorage.setItem('mgs5_adminEmail', e.target.value.trim()); showToast('✅ Email salvata!');}} placeholder="tua@email.com" style={inputSt}/>
               </div>
               <div>
                 <label style={{ fontSize:'0.62rem', textTransform:'uppercase', color:S.text2, display:'block', marginBottom:6 }}>URL Google Apps Script</label>
-                <input type="text" defaultValue={localStorage.getItem('mgs5_sheetsUrl')||SHEETS_URL} onChange={e=>localStorage.setItem('mgs5_sheetsUrl', e.target.value.trim())} placeholder="https://script.google.com/macros/s/..." style={{...inputSt, fontSize:'0.7rem'}}/>
+                <input type="text" defaultValue={localStorage.getItem('mgs5_sheetsUrl')||SHEETS_URL} onBlur={e=>{localStorage.setItem('mgs5_sheetsUrl', e.target.value.trim()); showToast('✅ URL salvato!');}} placeholder="https://script.google.com/macros/s/..." style={{...inputSt, fontSize:'0.7rem'}}/>
                 <div style={{ fontSize:'0.6rem', color:S.text2, marginTop:4 }}>Cambia il foglio Google Sheets collegato</div>
               </div>
               <div style={{ fontSize:'0.65rem', color:S.accent, lineHeight:1.6 }}>⚡ Il backup su Sheets si attiva automaticamente solo per questa email</div>

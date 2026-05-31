@@ -450,7 +450,7 @@ export default function App() {
       <div style={{ position:'sticky', top:0, zIndex:100, background:'rgba(10,15,30,0.95)', backdropFilter:'blur(20px)', borderBottom:`1px solid ${S.border}`, padding:'12px 16px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
           <div style={{ fontSize:'1.1rem', fontWeight:800, letterSpacing:'0.05em' }}>MG<span style={{color:'#ef4444'}}>S5</span></div>
-          <div style={{ fontSize:'0.75rem', color:S.text2, padding:'2px 8px', background:'rgba(255,255,255,0.05)', borderRadius:20 }}>{session.user.email.split('@')[0]}</div>
+          <div style={{ fontSize:'0.95rem', color:S.text2, padding:'2px 8px', background:'rgba(255,255,255,0.05)', borderRadius:20 }}>{session.user.email.split('@')[0]}</div>
         </div>
         <div style={{ display:'flex', alignItems:'center', gap:16 }}>
           <div style={{ textAlign:'right' }}>

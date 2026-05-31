@@ -685,7 +685,7 @@ async function importaCSV(e) {
           </Card>
           <Card>
             <CardTitle>Riepilogo mensile</CardTitle>
-            {Object.entries((() => { const pm={}; ricariche.forEach(r=>{const d=new Date(r.data);const k=MESI_NOMI[d.getMonth()]+' '+d.getFullYear();if(!pm[k])pm[k]={costo:0,kwh:0,count:0};pm[k].costo+=r.costo;pm[k].kwh+=r.kwhEff;pm[k].count++;}); return pm; })()).map(([mese,v])=>(
+            {Object.entries((() => { const pm={}; ricariche.forEach(r=>{const d=new Date(r.data);const k=MESI_NOMI[d.getMonth()]+' '+d.getFullYear();if(!pm[k])pm[k]={costo:0,kwh:0,count:0,anno:d.getFullYear(),mese:d.getMonth()};pm[k].costo+=r.costo;pm[k].kwh+=r.kwhEff;pm[k].count++;}); return pm; })()).sort((a,b)=>{ const [,va]=a; const [,vb]=b; return vb.anno!==va.anno?vb.anno-va.anno:vb.mese-va.mese; }).map(([mese,v])=>(
               <div key={mese} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 0', borderBottom:`1px solid rgba(255,255,255,0.05)` }}>
                 <div><div style={{ fontSize:'0.85rem' }}>{mese}</div><div style={{ fontSize:'0.65rem', color:S.text2 }}>{v.count} ricariche · {(v.kwh||0).toFixed(1)} kWh</div></div>
                 <div style={{ fontFamily:'monospace', color:S.green }}>€{(v.costo||0).toFixed(2)}</div>

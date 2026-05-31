@@ -649,7 +649,7 @@ export default function App() {
           </Card>
           <Card style={{ borderColor:'rgba(239,68,68,0.3)' }}>
             <CardTitle style={{ color:'#ef4444' }}>⚠️ Zona pericolosa</CardTitle>
-            <button onClick={async()=>{ const {data}=await supabase.from('ricariche').select('*').eq('user_id',session.user.id); const daAggiornare=data.filter(r=>(!r.costo||r.costo===0)&&r.kwh_eff&&r.prezzo_kwh); for(const r of daAggiornare){ await supabase.from('ricariche').update({costo:r.kwh_eff*r.prezzo_kwh}).eq('id',r.id); } showToast('✅ Ricalcolati '+daAggiornare.length+' costi!'); await loadRicariche(); }} style={{ width:'100%', padding:12, background:'transparent', border:'1px solid rgba(245,158,11,0.4)', borderRadius:10, color:'#f59e0b', fontSize:'0.85rem', cursor:'pointer', marginBottom:8 }}>🔄 Ricalcola costi zero</button>
+            
             <button onClick={()=>setConfirmIdx('all')} style={{ width:'100%', padding:12, background:'transparent', border:'1px solid rgba(239,68,68,0.4)', borderRadius:10, color:'#ef4444', fontSize:'0.85rem', cursor:'pointer' }}>🗑 Cancella tutti i dati</button>
           </Card>
         </>}

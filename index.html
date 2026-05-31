@@ -4,8 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MGS5 Ricariche</title>
-    {Object.e<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">ntries((() => { const pm={}; ricariche.forEach(r=>{const d=new Date(r.data);const k=MESI_NOMI[d.getMonth()]+' '+d.getFullYear();if(!pm[k])pm[k]={costo:0,kwh:0,count:0,anno:d.getFullYear(),mese:d.getMonth()};pm[k].costo+=r.costo;pm[k].kwh+=r.kwhEff;pm[k].count++;}); return pm; })()).sort((a,b)=>{ const [,va]=a; const [,vb]=b; return vb.anno!==va.anno?vb.anno-va.anno:vb.mese-va.mese; }).map(([mese,v])=>(
-    <link rel="apple-touch-icon" href="data:,">
+    <link rel="icon" href="/favicon.ico">
+    <link rel="apple-touch-icon" href="/favicon.ico">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="MGS5">
     <style>

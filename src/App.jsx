@@ -674,12 +674,12 @@ async function importaCSV(e) {
           <Card>
             <CardTitle>Archivio dati</CardTitle>
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:10 }}>
-              <button onClick={esportaCSV} style={btnStyle('0,229,255')}>📊 Esporta CSV</button>
-              <button onClick={esportaJSON} style={btnStyle('167,139,250')}>💾 Esporta JSON</button>
-              <button onClick={()=>{ const inp=document.createElement('input'); inp.type='file'; inp.accept='.json,application/json'; inp.onchange=importaJSON; inp.click(); }} style={btnStyle('124,58,237')}>📂 Importa JSON</button>
               <button onClick={()=>{ const inp=document.createElement('input'); inp.type='file'; inp.accept='.csv,text/csv'; inp.onchange=importaCSV; inp.click(); }} style={btnStyle('0,229,255')}>📊 Importa CSV</button>
+              <button onClick={esportaCSV} style={btnStyle('0,229,255')}>📊 Esporta CSV</button>
+              <button onClick={()=>{ const inp=document.createElement('input'); inp.type='file'; inp.accept='.json,application/json'; inp.onchange=importaJSON; inp.click(); }} style={btnStyle('124,58,237')}>📂 Importa JSON</button>
+              <button onClick={esportaJSON} style={btnStyle('167,139,250')}>💾 Esporta JSON</button>
               <button onClick={importaSheets} style={btnStyle('16,185,129')}>📥 Importa Sheets</button>
-              <button onClick={esportaSheets} style={{...btnStyle('245,158,11'), gridColumn:'1/-1'}}>📤 Esporta Sheets</button>
+              <button onClick={esportaSheets} style={btnStyle('245,158,11')}>📤 Esporta Sheets</button>
             </div>
             <div style={{ fontSize:'0.65rem', color:S.text2, marginTop:6, lineHeight:1.6 }}>⚠️ Importa sovrascrive tutti i dati esistenti</div>
           </Card>

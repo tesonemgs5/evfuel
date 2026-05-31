@@ -469,7 +469,31 @@ export default function App() {
     const a=document.createElement('a'); a.href='data:application/json;charset=utf-8,'+encodeURIComponent(json); a.download='ricariche.json'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
     showToast('💾 JSON esportato');
   }
-
+async function importaCSV(e) {
+    const file=e.target.files[0]; if(!file) return;
+    e.target.value='';
+    const reader=new FileReader();
+    reader.onload=async(ev)=>{
+      try {
+        const lines=ev.target.result.trim().split('\n');
+        const headers=lines[0].split(',');
+        const idx=(h)=>headers.findIndex(x=>x.trim()===h);
+        const iData=idx('Data'),iKm=idx('KM Totali'),iKmP=idx('KM Parziali'),iPrima=idx('% Prima'),iDopo=idx('% Dopo'),iKwh=idx('kWh Effettivi'),iPrezzo=idx('Prezzo Euro/kWh'),iCosto=idx('Costo Euro'),iKwh100=idx('kWh/100km'),iLuogo=idx('Luogo');
+        const raw=lines.slice(1).filter(l=>l.trim()).map(l=>{
+          const c=l.split(',');
+          return { data:c[iData]?.trim(), km:parseFloat(c[iKm])||null, kmParziali:parseFloat(c[iKmP])||null, pctPrima:parseFloat(c[iPrima])||0, pctDopo:parseFloat(c[iDopo])||0, kwhEff:parseFloat(c[iKwh])||0, prezzoKwh:parseFloat(c[iPrezzo])||0, costo:parseFloat(c[iCosto])||0, kwh100:parseFloat(c[iKwh100])||null, luogo:c[iLuogo]?.trim()||'' };
+        });
+        if(!raw.length){showToast('❌ Nessun dato nel CSV','#ef4444');return;}
+        showToast('⏳ Importazione in corso...');
+        const nuove=ricalcolaKmParziali(raw.sort((a,b)=>(a.km||0)-(b.km||0)).map(sanitizzaRicarica));
+        await sincronizzaRicariche(nuove);
+        showToast('✅ Importate '+nuove.length+' ricariche!');
+        await loadRicariche();
+        setView('home');
+      } catch { showToast('❌ CSV non valido','#ef4444'); }
+    };
+    reader.readAsText(file);
+  }
   async function importaJSON(e) {
     const file=e.target.files[0]; if(!file) return;
     e.target.value='';

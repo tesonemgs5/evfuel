@@ -72,6 +72,19 @@ function ricalcolaKmParziali(lista) {
   });
 }
 
+function toDbRecord(r, userId) {
+  return {
+    user_id: userId,
+    data: r.data, luogo: r.luogo || null,
+    km: r.km, km_parziali: r.kmParziali,
+    pct_prima: r.pctPrima, pct_dopo: r.pctDopo,
+    kwh_eff: r.kwhEff, kwh_teor: r.kwhTeor,
+    prezzo_kwh: r.prezzoKwh,
+    costo: (r.costo && r.costo > 0) ? r.costo : r.kwhEff * r.prezzoKwh,
+    kwh_100: r.kwh100,
+  };
+}
+
 function ConfigSheet({ showToast }) {
   const [editing, setEditing] = useState(false);
   const [email, setEmail] = useState(localStorage.getItem('mgs5_adminEmail')||'');
@@ -400,6 +413,13 @@ export default function App() {
     setRicariche(ricalcolaKmParziali((data||[]).map(sanitizzaRicarica)));
   }
 
+  async function sincronizzaRicariche(lista) {
+    await supabase.from('ricariche').delete().eq('user_id', session.user.id);
+    for (const r of lista) {
+      await supabase.from('ricariche').insert(toDbRecord(r, session.user.id));
+    }
+  }
+
   async function salvaRicarica(record) {
     const dbRecord = {
       user_id: session.user.id,
@@ -444,20 +464,52 @@ export default function App() {
     showToast('📊 CSV esportato');
   }
 
-  function importaJSON(e) {
+  function esportaJSON() {
+    const json = JSON.stringify({ ricariche }, null, 2);
+    const a=document.createElement('a'); a.href='data:application/json;charset=utf-8,'+encodeURIComponent(json); a.download='ricariche.json'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    showToast('💾 JSON esportato');
+  }
+
+  async function importaJSON(e) {
     const file=e.target.files[0]; if(!file) return;
+    e.target.value='';
     const reader=new FileReader();
-    reader.onload=(ev)=>{
+    reader.onload=async(ev)=>{
       try {
         const data=JSON.parse(ev.target.result);
-        if (data.ricariche) {
+        if (data.ricariche && data.ricariche.length > 0) {
+          showToast('⏳ Importazione in corso...');
           const nuove=ricalcolaKmParziali(data.ricariche.sort((a,b)=>(a.km||0)-(b.km||0)).map(sanitizzaRicarica));
-          await supabase.from('ricariche').delete().eq('user_id',session.user.id); nuove.forEach(async(r)=>{ const dbRecord={user_id:session.user.id,data:r.data,luogo:r.luogo||null,km:r.km,km_parziali:r.kmParziali,pct_prima:r.pctPrima,pct_dopo:r.pctDopo,kwh_eff:r.kwhEff,kwh_teor:r.kwhTeor,prezzo_kwh:r.prezzoKwh,costo:(r.costo&&r.costo>0)?r.costo:r.kwhEff*r.prezzoKwh,kwh_100:r.kwh100}; await supabase.from('ricariche').insert(dbRecord); });
-          showToast('✅ Importate '+nuove.length+' ricariche!'); setTimeout(()=>loadRicariche(),2000); setView('home');
-        }
+          await sincronizzaRicariche(nuove);
+          showToast('✅ Importate '+nuove.length+' ricariche!');
+          await loadRicariche();
+          setView('home');
+        } else { showToast('❌ Nessun dato nel file','#ef4444'); }
       } catch { showToast('❌ File non valido','#ef4444'); }
     };
-    reader.readAsText(file); e.target.value='';
+    reader.readAsText(file);
+  }
+
+  async function importaSheets() {
+    try {
+      showToast('⏳ Lettura da Sheets...');
+      const res=await fetch(getSheetsUrl()+'?action=read');
+      const json=await res.json();
+      if(json.data&&json.data.length>0){
+        const nuove=ricalcolaKmParziali(json.data.sort((a,b)=>(a.km||0)-(b.km||0)).map(sanitizzaRicarica));
+        await sincronizzaRicariche(nuove);
+        showToast('✅ Sincronizzato da Sheets!');
+        await loadRicariche();
+        setView('home');
+      } else { showToast('❌ Nessun dato su Sheets','#ef4444'); }
+    } catch(e) { showToast('❌ Errore import Sheets','#ef4444'); }
+  }
+
+  async function esportaSheets() {
+    try {
+      await fetch(getSheetsUrl()+'?action=write',{method:'POST',body:JSON.stringify(ricariche.map(r=>({...r,pctPrima:r.pctPrima>1?r.pctPrima/100:r.pctPrima,pctDopo:r.pctDopo>1?r.pctDopo/100:r.pctDopo})))});
+      showToast('☁️ Esportato su Sheets!');
+    } catch(e) { showToast('❌ Errore export Sheets','#ef4444'); }
   }
 
   const costoTot=ricariche.reduce((s,r)=>s+r.costo,0);
@@ -473,6 +525,8 @@ export default function App() {
 
   const Card=({children,style={}})=><div style={{background:S.bg2,border:`1px solid ${S.border}`,borderRadius:16,padding:16,marginBottom:12,...style}}>{children}</div>;
   const CardTitle=({children,style={}})=><div style={{fontSize:'0.65rem',textTransform:'uppercase',letterSpacing:'0.12em',color:S.text2,marginBottom:12,...style}}>{children}</div>;
+
+  const btnStyle=(color,border)=>({ padding:'16px 0', background:`rgba(${color},0.1)`, border:`1px solid rgba(${color},0.35)`, borderRadius:14, color:`rgb(${color})`, fontSize:'0.85rem', fontWeight:800, textTransform:'uppercase', letterSpacing:'0.06em', cursor:'pointer' });
 
   if (session === undefined) return <div style={{ background:S.bg, minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'2rem' }}>⚡</div>;
   if (!session) return <AuthScreen />;
@@ -596,12 +650,13 @@ export default function App() {
           <Card>
             <CardTitle>Archivio dati</CardTitle>
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:10 }}>
-              <button onClick={esportaCSV} style={{ padding:'16px 0', background:'rgba(0,229,255,0.1)', border:`1px solid rgba(0,229,255,0.3)`, borderRadius:14, color:S.accent, fontSize:'0.85rem', fontWeight:800, textTransform:'uppercase', letterSpacing:'0.06em', cursor:'pointer' }}>📊 Esporta CSV</button>
-              <button onClick={()=>{ const inp=document.createElement('input'); inp.type='file'; inp.accept='.json,application/json'; inp.onchange=importaJSON; inp.click(); }} style={{ padding:'16px 0', background:'rgba(124,58,237,0.1)', border:'1px solid rgba(124,58,237,0.35)', borderRadius:14, color:'#a78bfa', fontSize:'0.85rem', fontWeight:800, textTransform:'uppercase', letterSpacing:'0.06em', cursor:'pointer' }}>💾 Importa JSON</button>
-              <button onClick={async()=>{ try{ const res=await fetch(getSheetsUrl()+'?action=read'); const json=await res.json(); if(json.data&&json.data.length>0){ await supabase.from('ricariche').delete().eq('user_id',session.user.id); const nuove=ricalcolaKmParziali(json.data.sort((a,b)=>(a.km||0)-(b.km||0)).map(sanitizzaRicarica)); nuove.forEach(async(r)=>{ const dbRecord={user_id:session.user.id,data:r.data,luogo:r.luogo||null,km:r.km,km_parziali:r.kmParziali,pct_prima:r.pctPrima,pct_dopo:r.pctDopo,kwh_eff:r.kwhEff,kwh_teor:r.kwhTeor,prezzo_kwh:r.prezzoKwh,costo:(r.costo&&r.costo>0)?r.costo:r.kwhEff*r.prezzoKwh,kwh_100:r.kwh100}; await supabase.from('ricariche').insert(dbRecord); }); showToast('✅ Sincronizzato da Sheets!'); setTimeout(()=>loadRicariche(),2000); setView('home'); } else { showToast('❌ Nessun dato','#ef4444'); } }catch(e){showToast('❌ Errore import Sheets','#ef4444');} }} style={{ padding:'16px 0', background:'rgba(16,185,129,0.1)', border:'1px solid rgba(16,185,129,0.35)', borderRadius:14, color:'#10b981', fontSize:'0.85rem', fontWeight:800, textTransform:'uppercase', letterSpacing:'0.06em', cursor:'pointer' }}>📥 Importa Sheets</button>
-              <button onClick={async()=>{ try{ await fetch(getSheetsUrl()+'?action=write',{method:'POST',body:JSON.stringify(ricariche.map(r=>({...r,pctPrima:r.pctPrima>1?r.pctPrima/100:r.pctPrima,pctDopo:r.pctDopo>1?r.pctDopo/100:r.pctDopo})))}); showToast('☁️ Esportato su Sheets!'); }catch(e){showToast('❌ Errore export Sheets','#ef4444');} }} style={{ padding:'16px 0', background:'rgba(245,158,11,0.1)', border:'1px solid rgba(245,158,11,0.35)', borderRadius:14, color:'#f59e0b', fontSize:'0.85rem', fontWeight:800, textTransform:'uppercase', letterSpacing:'0.06em', cursor:'pointer' }}>📤 Esporta Sheets</button>
+              <button onClick={esportaCSV} style={btnStyle('0,229,255')}>📊 Esporta CSV</button>
+              <button onClick={esportaJSON} style={btnStyle('167,139,250')}>💾 Esporta JSON</button>
+              <button onClick={()=>{ const inp=document.createElement('input'); inp.type='file'; inp.accept='.json,application/json'; inp.onchange=importaJSON; inp.click(); }} style={btnStyle('124,58,237')}>📂 Importa JSON</button>
+              <button onClick={importaSheets} style={btnStyle('16,185,129')}>📥 Importa Sheets</button>
+              <button onClick={esportaSheets} style={{...btnStyle('245,158,11'), gridColumn:'1/-1'}}>📤 Esporta Sheets</button>
             </div>
-            <div style={{ fontSize:'0.65rem', color:S.text2, marginTop:6, lineHeight:1.6 }}>⚠️ "Da Sheets" aggiunge i dati — non sovrascrive</div>
+            <div style={{ fontSize:'0.65rem', color:S.text2, marginTop:6, lineHeight:1.6 }}>⚠️ Importa sovrascrive tutti i dati esistenti</div>
           </Card>
           <Card>
             <CardTitle>Riepilogo mensile</CardTitle>
@@ -645,11 +700,10 @@ export default function App() {
             <CardTitle>☁️ Backup Google Sheets</CardTitle>
             <div style={{ fontSize:'0.75rem', color:S.text2, marginBottom:12, lineHeight:1.6 }}>Inserisci la tua email per attivare il backup automatico su Google Sheets ad ogni salvataggio.</div>
             <ConfigSheet showToast={showToast} />
-            <button onClick={async()=>{ const adminEmail=localStorage.getItem('mgs5_adminEmail')||''; if(!adminEmail||session.user.email!==adminEmail){showToast('❌ Email non corrisponde','#ef4444');return;} try{ await fetch(getSheetsUrl()+'?action=write',{method:'POST',body:JSON.stringify(ricariche.map(r=>({...r,pctPrima:r.pctPrima>1?r.pctPrima/100:r.pctPrima,pctDopo:r.pctDopo>1?r.pctDopo/100:r.pctDopo})))}); showToast('☁️ Backup inviato a Sheets!'); }catch(e){showToast('❌ Errore backup','#ef4444');} }} style={{ width:'100%', marginTop:10, padding:12, background:'rgba(16,185,129,0.1)', border:'1px solid rgba(16,185,129,0.35)', borderRadius:10, color:'#10b981', fontSize:'0.85rem', fontWeight:700, cursor:'pointer' }}>☁️ Invia backup a Google Sheets</button>
+            <button onClick={async()=>{ const adminEmail=localStorage.getItem('mgs5_adminEmail')||''; if(!adminEmail||session.user.email!==adminEmail){showToast('❌ Email non corrisponde','#ef4444');return;} await esportaSheets(); showToast('☁️ Backup inviato a Sheets!'); }} style={{ width:'100%', marginTop:10, padding:12, background:'rgba(16,185,129,0.1)', border:'1px solid rgba(16,185,129,0.35)', borderRadius:10, color:'#10b981', fontSize:'0.85rem', fontWeight:700, cursor:'pointer' }}>☁️ Invia backup a Google Sheets</button>
           </Card>
           <Card style={{ borderColor:'rgba(239,68,68,0.3)' }}>
             <CardTitle style={{ color:'#ef4444' }}>⚠️ Zona pericolosa</CardTitle>
-            
             <button onClick={()=>setConfirmIdx('all')} style={{ width:'100%', padding:12, background:'transparent', border:'1px solid rgba(239,68,68,0.4)', borderRadius:10, color:'#ef4444', fontSize:'0.85rem', cursor:'pointer' }}>🗑 Cancella tutti i dati</button>
           </Card>
         </>}

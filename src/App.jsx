@@ -615,6 +615,11 @@ export default function App() {
                 <label style={{ fontSize:'0.62rem', textTransform:'uppercase', color:S.text2, display:'block', marginBottom:6 }}>La tua email admin</label>
                 <input type="email" defaultValue={localStorage.getItem('mgs5_adminEmail')||''} onChange={e=>localStorage.setItem('mgs5_adminEmail', e.target.value.trim())} placeholder="tua@email.com" style={inputSt}/>
               </div>
+              <div>
+                <label style={{ fontSize:'0.62rem', textTransform:'uppercase', color:S.text2, display:'block', marginBottom:6 }}>URL Google Apps Script</label>
+                <input type="text" defaultValue={localStorage.getItem('mgs5_sheetsUrl')||SHEETS_URL} onChange={e=>localStorage.setItem('mgs5_sheetsUrl', e.target.value.trim())} placeholder="https://script.google.com/macros/s/..." style={{...inputSt, fontSize:'0.7rem'}}/>
+                <div style={{ fontSize:'0.6rem', color:S.text2, marginTop:4 }}>Cambia il foglio Google Sheets collegato</div>
+              </div>
               <div style={{ fontSize:'0.65rem', color:S.accent, lineHeight:1.6 }}>⚡ Il backup su Sheets si attiva automaticamente solo per questa email</div>
             </div>
             <button onClick={async()=>{ const adminEmail=localStorage.getItem('mgs5_adminEmail')||''; if(!adminEmail||session.user.email!==adminEmail){showToast('❌ Email non corrisponde','#ef4444');return;} try{ await fetch(SHEETS_URL+'?action=write',{method:'POST',body:JSON.stringify(ricariche.map(r=>({...r,pctPrima:r.pctPrima>1?r.pctPrima/100:r.pctPrima,pctDopo:r.pctDopo>1?r.pctDopo/100:r.pctDopo})))}); showToast('☁️ Backup inviato a Sheets!'); }catch(e){showToast('❌ Errore backup','#ef4444');} }} style={{ width:'100%', marginTop:10, padding:12, background:'rgba(16,185,129,0.1)', border:'1px solid rgba(16,185,129,0.35)', borderRadius:10, color:'#10b981', fontSize:'0.85rem', fontWeight:700, cursor:'pointer' }}>☁️ Invia backup a Google Sheets</button>

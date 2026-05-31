@@ -72,6 +72,39 @@ function ricalcolaKmParziali(lista) {
   });
 }
 
+function ConfigSheet({ showToast }) {
+  const [editing, setEditing] = useState(false);
+  const [email, setEmail] = useState(localStorage.getItem('mgs5_adminEmail')||'');
+  const [url, setUrl] = useState(localStorage.getItem('mgs5_sheetsUrl')||SHEETS_URL);
+  function salva() {
+    localStorage.setItem('mgs5_adminEmail', email.trim());
+    localStorage.setItem('mgs5_sheetsUrl', url.trim());
+    setEditing(false);
+    showToast('✅ Impostazioni salvate!');
+  }
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+      <div>
+        <label style={{ fontSize:'0.62rem', textTransform:'uppercase', color:S.text2, display:'block', marginBottom:6 }}>Email admin</label>
+        {editing ? <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="tua@email.com" style={inputSt}/> : <div style={{ fontFamily:'monospace', fontSize:'0.85rem', color:S.text, padding:'10px 12px', background:'rgba(255,255,255,0.04)', border:`1px solid ${S.border}`, borderRadius:10 }}>{email||'—'}</div>}
+      </div>
+      <div>
+        <label style={{ fontSize:'0.62rem', textTransform:'uppercase', color:S.text2, display:'block', marginBottom:6 }}>URL Google Apps Script</label>
+        {editing ? <input type="text" value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://script.google.com/macros/s/..." style={{...inputSt, fontSize:'0.7rem'}}/> : <div style={{ fontFamily:'monospace', fontSize:'0.65rem', color:S.text2, padding:'10px 12px', background:'rgba(255,255,255,0.04)', border:`1px solid ${S.border}`, borderRadius:10, wordBreak:'break-all' }}>{url}</div>}
+      </div>
+      {editing ? (
+        <div style={{ display:'flex', gap:8 }}>
+          <button onClick={()=>setEditing(false)} style={{ flex:1, padding:'10px 0', background:'transparent', border:`1px solid ${S.border}`, borderRadius:10, color:S.text2, fontSize:'0.8rem', cursor:'pointer' }}>Annulla</button>
+          <button onClick={salva} style={{ flex:2, padding:'10px 0', background:`linear-gradient(135deg,${S.accent},${S.accent2})`, border:'none', borderRadius:10, color:'#fff', fontSize:'0.8rem', fontWeight:700, cursor:'pointer' }}>✅ Salva</button>
+        </div>
+      ) : (
+        <button onClick={()=>setEditing(true)} style={{ padding:'10px 0', background:'rgba(255,255,255,0.05)', border:`1px solid ${S.border}`, borderRadius:10, color:S.text2, fontSize:'0.8rem', cursor:'pointer' }}>✏️ Modifica impostazioni</button>
+      )}
+      <div style={{ fontSize:'0.65rem', color:S.accent, lineHeight:1.6 }}>⚡ Il backup si attiva automaticamente solo per l'email admin</div>
+    </div>
+  );
+}
+
 function useToast() {
   const [toast, setToast] = useState(null);
   const show = (msg, color = '#10b981') => {
@@ -611,18 +644,7 @@ export default function App() {
           <Card>
             <CardTitle>☁️ Backup Google Sheets</CardTitle>
             <div style={{ fontSize:'0.75rem', color:S.text2, marginBottom:12, lineHeight:1.6 }}>Inserisci la tua email per attivare il backup automatico su Google Sheets ad ogni salvataggio.</div>
-            <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-              <div>
-                <label style={{ fontSize:'0.62rem', textTransform:'uppercase', color:S.text2, display:'block', marginBottom:6 }}>La tua email admin</label>
-                <input type="email" defaultValue={localStorage.getItem('mgs5_adminEmail')||''} onBlur={e=>{localStorage.setItem('mgs5_adminEmail', e.target.value.trim()); showToast('✅ Email salvata!');}} placeholder="tua@email.com" style={inputSt}/>
-              </div>
-              <div>
-                <label style={{ fontSize:'0.62rem', textTransform:'uppercase', color:S.text2, display:'block', marginBottom:6 }}>URL Google Apps Script</label>
-                <input type="text" defaultValue={localStorage.getItem('mgs5_sheetsUrl')||SHEETS_URL} onBlur={e=>{localStorage.setItem('mgs5_sheetsUrl', e.target.value.trim()); showToast('✅ URL salvato!');}} placeholder="https://script.google.com/macros/s/..." style={{...inputSt, fontSize:'0.7rem'}}/>
-                <div style={{ fontSize:'0.6rem', color:S.text2, marginTop:4 }}>Cambia il foglio Google Sheets collegato</div>
-              </div>
-              <div style={{ fontSize:'0.65rem', color:S.accent, lineHeight:1.6 }}>⚡ Il backup su Sheets si attiva automaticamente solo per questa email</div>
-            </div>
+            <ConfigSheet showToast={showToast} />
             <button onClick={async()=>{ const adminEmail=localStorage.getItem('mgs5_adminEmail')||''; if(!adminEmail||session.user.email!==adminEmail){showToast('❌ Email non corrisponde','#ef4444');return;} try{ await fetch(getSheetsUrl()+'?action=write',{method:'POST',body:JSON.stringify(ricariche.map(r=>({...r,pctPrima:r.pctPrima>1?r.pctPrima/100:r.pctPrima,pctDopo:r.pctDopo>1?r.pctDopo/100:r.pctDopo})))}); showToast('☁️ Backup inviato a Sheets!'); }catch(e){showToast('❌ Errore backup','#ef4444');} }} style={{ width:'100%', marginTop:10, padding:12, background:'rgba(16,185,129,0.1)', border:'1px solid rgba(16,185,129,0.35)', borderRadius:10, color:'#10b981', fontSize:'0.85rem', fontWeight:700, cursor:'pointer' }}>☁️ Invia backup a Google Sheets</button>
           </Card>
           <Card style={{ borderColor:'rgba(239,68,68,0.3)' }}>

@@ -383,9 +383,16 @@ function FormRicarica({ settings, ricariche, editIdx, onSave, onCancel, showToas
   );
 }
 
+const THEMES = {
+  dark:  { bg:'#0a0f1e', bg2:'rgba(255,255,255,0.04)', border:'rgba(0,229,255,0.15)', accent:'#00e5ff', accent2:'#7c3aed', green:'#10b981', text:'#e2e8f0', text2:'#94a3b8', headerBg:'rgba(10,15,30,0.95)', navBg:'rgba(10,15,30,0.95)' },
+  light: { bg:'#f0f4f8', bg2:'rgba(0,0,0,0.04)', border:'rgba(0,140,200,0.25)', accent:'#0070a8', accent2:'#5b21b6', green:'#047857', text:'#1e293b', text2:'#64748b', headerBg:'rgba(240,244,248,0.95)', navBg:'rgba(240,244,248,0.95)' },
+};
+function getSystemTheme() { return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; }
+
 export default function App() {
   const [session,    setSession]    = useState(undefined);
   const [view,       setView]       = useState('home');
+  const [themeMode,  setThemeMode]  = useState(()=>localStorage.getItem('mgs5_theme')||'auto');
   const [ricariche,  setRicariche]  = useState([]);
   const [loading,    setLoading]    = useState(false);
   const [settings,   setSettings]   = useState(() => {
@@ -536,6 +543,10 @@ async function importaCSV(e) {
     } catch(e) { showToast('❌ Errore export Sheets','#ef4444'); }
   }
 
+  const activeTheme = themeMode === 'auto' ? getSystemTheme() : themeMode;
+  const S = THEMES[activeTheme];
+  useEffect(()=>{ localStorage.setItem('mgs5_theme', themeMode); document.body.style.background = S.bg; }, [themeMode, S.bg]);
+
   const costoTot=ricariche.reduce((s,r)=>s+r.costo,0);
   const kmMax=ricariche.length?Math.max(...ricariche.map(r=>r.km||0)):null;
   const perMese={};
@@ -559,20 +570,25 @@ async function importaCSV(e) {
     <div style={{ fontFamily:'system-ui,sans-serif', background:S.bg, color:S.text, minHeight:'100vh', maxWidth:480, margin:'0 auto', position:'relative' }}>
       {confirmIdx!==null&&<ConfirmDialog messaggio={confirmIdx==='all'?'Cancellare TUTTI i dati?':'Cancellare questa ricarica?'} onConfirm={()=>confirmIdx==='all'?cancellaTutto():cancellaRicarica(confirmIdx)} onCancel={()=>setConfirmIdx(null)}/>}
 
-      <div style={{ position:'sticky', top:0, zIndex:100, background:'rgba(10,15,30,0.95)', backdropFilter:'blur(20px)', borderBottom:`1px solid ${S.border}`, padding:'12px 16px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+      <div style={{ position:'sticky', top:0, zIndex:100, background:S.headerBg, backdropFilter:'blur(20px)', borderBottom:`1px solid ${S.border}`, padding:'12px 16px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-          <div style={{ fontSize:'1.1rem', fontWeight:800, letterSpacing:'0.05em' }}>MG<span style={{color:'#ef4444'}}>S5</span></div>
+          <div onClick={()=>{ const n=prompt('Nome veicolo:',settings.targa||'MGS5'); if(n&&n.trim()) setSettings({...settings,targa:n.trim()}); }} style={{ fontSize:'1.1rem', fontWeight:800, letterSpacing:'0.05em', cursor:'pointer' }}>{settings.targa||'MGS5'}</div>
           <a href="https://docs.google.com/spreadsheets/d/1egavj34-1EM3lY91kSikV48G7zxrnM7tOKdJ5GqPhY4/edit" target="_blank" rel="noreferrer" style={{ display:'flex', alignItems:'center', gap:4, padding:'3px 9px', background:'rgba(0,229,255,0.08)', border:'1px solid rgba(0,229,255,0.25)', borderRadius:20, color:S.accent, fontSize:'0.65rem', fontWeight:700, textDecoration:'none' }}>📊</a>
+          <button onClick={()=>setThemeMode(m=>m==='dark'?'light':m==='light'?'auto':'dark')} style={{ padding:'3px 9px', background:'rgba(0,229,255,0.08)', border:'1px solid rgba(0,229,255,0.25)', borderRadius:20, color:S.accent, fontSize:'0.65rem', fontWeight:700, cursor:'pointer' }}>{themeMode==='dark'?'🌙':themeMode==='light'?'☀️':'🌓'}</button>
           <div style={{ fontSize:'0.75rem', color:S.text2, padding:'2px 8px', background:'rgba(255,255,255,0.05)', borderRadius:20 }}>{session.user.email.split('@')[0]}</div>
         </div>
         <div style={{ display:'flex', alignItems:'center', gap:16 }}>
           <div style={{ textAlign:'right' }}>
             <div style={{ fontFamily:'monospace', fontSize:'1rem', fontWeight:700, color:S.accent }}>{kmMax?kmMax.toLocaleString('it'):'—'}</div>
             <div style={{ fontSize:'0.62rem', color:S.text2, textTransform:'uppercase', letterSpacing:'0.06em' }}>km totali</div>
+            <div style={{ fontFamily:'monospace', fontSize:'0.85rem', fontWeight:700, color:S.accent, marginTop:2 }}>{ricariche.reduce((s,r)=>s+r.kwhEff,0).toFixed(1)} kWh</div>
+            <div style={{ fontSize:'0.62rem', color:S.text2, textTransform:'uppercase', letterSpacing:'0.06em' }}>kWh totali</div>
           </div>
           <div style={{ textAlign:'right' }}>
             <div style={{ fontFamily:'monospace', fontSize:'1rem', fontWeight:700, color:S.accent }}>{costoTot?'€'+(costoTot||0).toFixed(2):'—'}</div>
             <div style={{ fontSize:'0.62rem', color:S.text2, textTransform:'uppercase', letterSpacing:'0.06em' }}>costo tot.</div>
+            <div style={{ fontFamily:'monospace', fontSize:'0.85rem', fontWeight:700, color:S.accent, marginTop:2 }}>{(()=>{const r=ricariche.filter(x=>x.kwh100);return r.length?(r.reduce((s,x)=>s+x.kwh100,0)/r.length).toFixed(2)+' kWh':'—';})()}</div>
+            <div style={{ fontSize:'0.62rem', color:S.text2, textTransform:'uppercase', letterSpacing:'0.06em' }}>media /100km</div>
           </div>
         </div>
       </div>
@@ -734,7 +750,7 @@ async function importaCSV(e) {
         </>}
       </div>
 
-      <div style={{ position:'fixed', bottom:0, left:'50%', transform:'translateX(-50%)', width:'100%', maxWidth:480, background:'rgba(10,15,30,0.95)', backdropFilter:'blur(20px)', borderTop:`1px solid ${S.border}`, display:'flex', zIndex:100, paddingBottom:'env(safe-area-inset-bottom)' }}>
+      <div style={{ position:'fixed', bottom:0, left:'50%', transform:'translateX(-50%)', width:'100%', maxWidth:480, background:S.navBg, backdropFilter:'blur(20px)', borderTop:`1px solid ${S.border}`, display:'flex', zIndex:100, paddingBottom:'env(safe-area-inset-bottom)' }}>
         {[{id:'home',icon:'⚡',label:'Home'},{id:'add',icon:'＋',label:'Aggiungi'},{id:'charts',icon:'📈',label:'Grafici'},{id:'export',icon:'🗂️',label:'Dati'},{id:'settings',icon:'⚙️',label:'Config'}].map(btn=>(
           <button key={btn.id} onClick={()=>{if(btn.id==='add')setEditIdx(null);setView(btn.id);}} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:4, padding:'8px 4px', background:'none', border:'none', color:view===btn.id?S.accent:S.text2, fontFamily:'system-ui', fontSize:'0.6rem', textTransform:'uppercase', letterSpacing:'0.08em', cursor:'pointer' }}>
             <span style={{ fontSize:'1.3rem', lineHeight:1 }}>{btn.icon}</span>

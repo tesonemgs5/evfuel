@@ -777,7 +777,7 @@ async function importaCSV(e) {
               <button onClick={importaSheets} style={btnStyle('16,185,129')}>📥 Importa Sheets</button>
               <button onClick={esportaSheets} style={btnStyle('245,158,11')}>📤 Esporta Sheets</button>
             </div>
-            <div style={{ fontSize:'5rem', color:S.text2, marginTop:6, lineHeight:1.6 }}>⚠️ Importa sovrascrive tutti i dati esistenti</div>
+            <div style={{ fontSize:'1rem', color:S.text2, marginTop:6, lineHeight:1.6 }}>⚠️ Importa sovrascrive tutti i dati esistenti</div>
           </Card>
           <Card>
             <CardTitle>Riepilogo mensile</CardTitle>
@@ -800,7 +800,7 @@ async function importaCSV(e) {
               return (
                 <div key={mese} style={{ padding:'14px 0', borderBottom:`1px solid rgba(255,255,255,0.05)` }}>
                   <div style={{ display:'flex', alignItems:'baseline', justifyContent:'space-between', marginBottom:4 }}>
-                    <div style={{ fontSize:'1rem', fontWeight:700 }}>{mese}</div>
+                    <div style={{ fontSize:'10rem', fontWeight:700 }}>{mese}</div>
                     <div style={{ fontFamily:'monospace', fontSize:'1rem', fontWeight:700, color:S.green }}>€{(v.costo||0).toFixed(2)}</div>
                   </div>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>

@@ -20,7 +20,8 @@ const S = {
 const inputSt = {
   background:'rgba(255,255,255,0.06)', border:`1px solid ${S.border}`, borderRadius:10,
   color:S.text, fontFamily:'monospace', fontSize:'1rem', padding:'10px 12px',
-  width:'100%', outline:'none', boxSizing:'border-box'
+  width:'100%', outline:'none', boxSizing:'border-box',
+  MozAppearance:'textfield', appearance:'textfield'
 };
 
 const chipSt = {
@@ -28,6 +29,10 @@ const chipSt = {
   border:'1px solid rgba(0,229,255,0.2)', borderRadius:20,
   color:S.accent, fontFamily:'monospace', fontSize:'0.75rem', cursor:'pointer'
 };
+
+const noSpinnerStyle = document.createElement('style');
+noSpinnerStyle.textContent = 'input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}';
+document.head.appendChild(noSpinnerStyle);
 
 function today() { return new Date().toISOString().split('T')[0]; }
 function toNum(x, def = 0) { const n = Number(x); return Number.isFinite(n) ? n : def; }
@@ -394,6 +399,28 @@ const THEMES = {
 };
 function getSystemTheme() { return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; }
 
+function SettingsVeicoloFields({ settings, setSettings, inputSt, S }) {
+  return <>
+    {[{label:'Capacità batteria (kWh)',key:'batteria',type:'number',step:1},{label:'Prezzo default €/kWh',key:'prezzo',type:'number',step:0.001},{label:'Targa / Nome veicolo',key:'targa',type:'text'}].map(f=>(
+      <div key={f.key} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 0', borderBottom:`1px solid rgba(255,255,255,0.05)` }}>
+        <div style={{ fontSize:'0.85rem' }}>{f.label}</div>
+        <input type={f.type} step={f.step} value={settings[f.key]} onChange={e=>setSettings({...settings,[f.key]:f.type==='number'?parseFloat(e.target.value)||0:e.target.value})} style={{...inputSt,width:100,textAlign:'right'}}/>
+      </div>
+    ))}
+  </>;
+}
+
+function SettingsPresetFields({ settings, setSettings, inputSt, S }) {
+  return <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+    {[{label:'% Prima — op.1',key:'p1a'},{label:'% Prima — op.2',key:'p1b'},{label:'% Dopo — op.1',key:'p2a'},{label:'% Dopo — op.2',key:'p2b'}].map(f=>(
+      <div key={f.key}>
+        <div style={{ fontSize:'0.65rem', color:S.text2, textTransform:'uppercase', marginBottom:6 }}>{f.label}</div>
+        <input type="number" value={settings[f.key]} onChange={e=>setSettings({...settings,[f.key]:parseFloat(e.target.value)||0})} style={{...inputSt,textAlign:'right'}}/>
+      </div>
+    ))}
+  </div>;
+}
+
 function SettingsView({ settings, setSettings, session, S, openSec, setOpenSec, showToast, esportaSheets, setConfirmIdx, inputSt }) {
   const toggle = k => setOpenSec(p=>({...p,[k]:!p[k]}));
   const SecHeader = ({k,label})=>(
@@ -406,23 +433,11 @@ function SettingsView({ settings, setSettings, session, S, openSec, setOpenSec, 
   return <>
     <Card>
       <SecHeader k="veicolo" label="Impostazioni veicolo"/>
-      {openSec.veicolo && [{label:'Capacità batteria (kWh)',key:'batteria',type:'number',step:1},{label:'Prezzo default €/kWh',key:'prezzo',type:'number',step:0.001},{label:'Targa / Nome veicolo',key:'targa',type:'text'}].map(f=>(
-        <div key={f.key} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 0', borderBottom:`1px solid rgba(255,255,255,0.05)` }}>
-          <div style={{ fontSize:'0.85rem' }}>{f.label}</div>
-          <input type={f.type} step={f.step} value={settings[f.key]} onChange={e=>setSettings({...settings,[f.key]:f.type==='number'?parseFloat(e.target.value)||0:e.target.value})} style={{...inputSt,width:100,textAlign:'right'}}/>
-        </div>
-      ))}
+      {openSec.veicolo && <SettingsVeicoloFields settings={settings} setSettings={setSettings} inputSt={inputSt} S={S}/>}
     </Card>
     <Card>
       <SecHeader k="preset" label="Preset % batteria"/>
-      {openSec.preset && <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
-        {[{label:'% Prima — op.1',key:'p1a'},{label:'% Prima — op.2',key:'p1b'},{label:'% Dopo — op.1',key:'p2a'},{label:'% Dopo — op.2',key:'p2b'}].map(f=>(
-          <div key={f.key}>
-            <div style={{ fontSize:'0.65rem', color:S.text2, textTransform:'uppercase', marginBottom:6 }}>{f.label}</div>
-            <input type="number" value={settings[f.key]} onChange={e=>setSettings({...settings,[f.key]:parseFloat(e.target.value)||0})} style={{...inputSt,textAlign:'right'}}/>
-          </div>
-        ))}
-      </div>}
+      {openSec.preset && <SettingsPresetFields settings={settings} setSettings={setSettings} inputSt={inputSt} S={S}/>}
     </Card>
     <Card>
       <SecHeader k="account" label="Account"/>

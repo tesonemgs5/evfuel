@@ -87,8 +87,9 @@ function toDbRecord(r, userId) {
 
 function ConfigSheet({ showToast }) {
   const [editing, setEditing] = useState(false);
-  const [email, setEmail] = useState(localStorage.getItem('mgs5_adminEmail')||'');
-  const [url, setUrl] = useState(localStorage.getItem('mgs5_sheetsUrl')||SHEETS_URL);
+  const [email, setEmail] = useState('');
+  const [url, setUrl] = useState(SHEETS_URL);
+  useEffect(()=>{ setEmail(localStorage.getItem('mgs5_adminEmail')||''); setUrl(localStorage.getItem('mgs5_sheetsUrl')||SHEETS_URL); },[]);
   function salva() {
     localStorage.setItem('mgs5_adminEmail', email.trim());
     localStorage.setItem('mgs5_sheetsUrl', url.trim());
@@ -272,6 +273,10 @@ function FormRicarica({ settings, ricariche, editIdx, onSave, onCancel, showToas
   const [fDopo,   setFDopo]   = useState(ex ? String(ex.pctDopo > 1 ? ex.pctDopo : ex.pctDopo * 100) : '');
   const [fKwh,    setFKwh]    = useState(ex ? String(ex.kwhEff) : '');
   const [fPrezzo, setFPrezzo] = useState(ex ? String(ex.prezzoKwh) : String(settings.prezzo));
+  useEffect(()=>{
+    const v = parseFloat(fPrezzo);
+    if (Math.abs(v - 0.2) < 0.001 && fLuogo !== 'CASA') setFLuogo('CASA');
+  }, [fPrezzo]);
 
   const prima=parseFloat(fPrima)||0, dopo=parseFloat(fDopo)||0;
   const diff=dopo-prima, kwhTeor=settings.batteria*(diff/100);
@@ -389,6 +394,58 @@ const THEMES = {
 };
 function getSystemTheme() { return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; }
 
+function SettingsView({ settings, setSettings, session, S, openSec, setOpenSec, showToast, esportaSheets, setConfirmIdx, inputSt }) {
+  const toggle = k => setOpenSec(p=>({...p,[k]:!p[k]}));
+  const SecHeader = ({k,label})=>(
+    <div onClick={()=>toggle(k)} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', cursor:'pointer', userSelect:'none', marginBottom: openSec[k]?12:0 }}>
+      <div style={{ fontSize:'0.65rem', textTransform:'uppercase', letterSpacing:'0.12em', color:S.text2 }}>{label}</div>
+      <span style={{ color:S.text2, fontSize:'0.8rem' }}>{openSec[k]?'▲':'▼'}</span>
+    </div>
+  );
+  const Card=({children,style={}})=><div style={{background:S.bg2,border:`1px solid ${S.border}`,borderRadius:16,padding:16,marginBottom:12,...style}}>{children}</div>;
+  return <>
+    <Card>
+      <SecHeader k="veicolo" label="Impostazioni veicolo"/>
+      {openSec.veicolo && [{label:'Capacità batteria (kWh)',key:'batteria',type:'number',step:1},{label:'Prezzo default €/kWh',key:'prezzo',type:'number',step:0.001},{label:'Targa / Nome veicolo',key:'targa',type:'text'}].map(f=>(
+        <div key={f.key} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 0', borderBottom:`1px solid rgba(255,255,255,0.05)` }}>
+          <div style={{ fontSize:'0.85rem' }}>{f.label}</div>
+          <input type={f.type} step={f.step} value={settings[f.key]} onChange={e=>setSettings({...settings,[f.key]:f.type==='number'?parseFloat(e.target.value)||0:e.target.value})} style={{...inputSt,width:100,textAlign:'right'}}/>
+        </div>
+      ))}
+    </Card>
+    <Card>
+      <SecHeader k="preset" label="Preset % batteria"/>
+      {openSec.preset && <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+        {[{label:'% Prima — op.1',key:'p1a'},{label:'% Prima — op.2',key:'p1b'},{label:'% Dopo — op.1',key:'p2a'},{label:'% Dopo — op.2',key:'p2b'}].map(f=>(
+          <div key={f.key}>
+            <div style={{ fontSize:'0.65rem', color:S.text2, textTransform:'uppercase', marginBottom:6 }}>{f.label}</div>
+            <input type="number" value={settings[f.key]} onChange={e=>setSettings({...settings,[f.key]:parseFloat(e.target.value)||0})} style={{...inputSt,textAlign:'right'}}/>
+          </div>
+        ))}
+      </div>}
+    </Card>
+    <Card>
+      <SecHeader k="account" label="Account"/>
+      {openSec.account && <>
+        <div style={{ fontSize:'0.8rem', color:S.text2, marginBottom:16 }}>Connesso come: <span style={{ color:S.text }}>{session.user.email}</span></div>
+        <button onClick={()=>supabase.auth.signOut()} style={{ width:'100%', padding:12, background:'transparent', border:`1px solid ${S.border}`, borderRadius:10, color:S.text2, fontSize:'0.85rem', cursor:'pointer' }}>🚪 Esci dall'account</button>
+      </>}
+    </Card>
+    <Card>
+      <SecHeader k="sheets" label="☁️ Backup Google Sheets"/>
+      {openSec.sheets && <>
+        <div style={{ fontSize:'0.75rem', color:S.text2, marginBottom:12, lineHeight:1.6 }}>Inserisci la tua email per attivare il backup automatico su Google Sheets ad ogni salvataggio.</div>
+        <ConfigSheet showToast={showToast} />
+        <button onClick={async()=>{ const adminEmail=localStorage.getItem('mgs5_adminEmail')||''; if(!adminEmail||session.user.email!==adminEmail){showToast('❌ Email non corrisponde','#ef4444');return;} await esportaSheets(); showToast('☁️ Backup inviato a Sheets!'); }} style={{ width:'100%', marginTop:10, padding:12, background:'rgba(16,185,129,0.1)', border:'1px solid rgba(16,185,129,0.35)', borderRadius:10, color:'#10b981', fontSize:'0.85rem', fontWeight:700, cursor:'pointer' }}>☁️ Invia backup a Google Sheets</button>
+      </>}
+    </Card>
+    <Card style={{ borderColor:'rgba(239,68,68,0.3)' }}>
+      <SecHeader k="danger" label="⚠️ Zona pericolosa"/>
+      {openSec.danger && <button onClick={()=>setConfirmIdx('all')} style={{ width:'100%', padding:12, background:'transparent', border:'1px solid rgba(239,68,68,0.4)', borderRadius:10, color:'#ef4444', fontSize:'0.85rem', cursor:'pointer' }}>🗑 Cancella tutti i dati</button>}
+    </Card>
+  </>;
+}
+
 export default function App() {
   const [session,    setSession]    = useState(undefined);
   const [view,       setView]       = useState('home');
@@ -401,6 +458,7 @@ export default function App() {
   const [editIdx,    setEditIdx]    = useState(null);
   const [confirmIdx, setConfirmIdx] = useState(null);
   const [mesiAperti, setMesiAperti] = useState({});
+  const [openSec,    setOpenSec]    = useState({veicolo:true,preset:false,account:false,sheets:false,danger:false});
   const { toast, show: showToast }  = useToast();
 
   useEffect(() => {
@@ -572,10 +630,10 @@ async function importaCSV(e) {
 
       <div style={{ position:'sticky', top:0, zIndex:100, background:S.headerBg, backdropFilter:'blur(20px)', borderBottom:`1px solid ${S.border}`, padding:'12px 16px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-          <div onClick={()=>{ const n=prompt('Nome veicolo:',settings.targa||'MGS5'); if(n&&n.trim()) setSettings({...settings,targa:n.trim()}); }} style={{ fontSize:'1.1rem', fontWeight:800, letterSpacing:'0.05em', cursor:'pointer' }}>{settings.targa||'MGS5'}</div>
+          <input value={settings.targa||''} onChange={e=>setSettings({...settings,targa:e.target.value})} style={{ fontSize:'1.1rem', fontWeight:800, letterSpacing:'0.05em', background:'transparent', border:'none', outline:'none', color:S.text, width: Math.max(40,(settings.targa||'MGS5').length*14)+'px', fontFamily:'system-ui' }}/>
           <a href="https://docs.google.com/spreadsheets/d/1egavj34-1EM3lY91kSikV48G7zxrnM7tOKdJ5GqPhY4/edit" target="_blank" rel="noreferrer" style={{ display:'flex', alignItems:'center', gap:4, padding:'3px 9px', background:'rgba(0,229,255,0.08)', border:'1px solid rgba(0,229,255,0.25)', borderRadius:20, color:S.accent, fontSize:'0.65rem', fontWeight:700, textDecoration:'none' }}>📊</a>
           <button onClick={()=>setThemeMode(m=>m==='dark'?'light':m==='light'?'auto':'dark')} style={{ padding:'3px 9px', background:'rgba(0,229,255,0.08)', border:'1px solid rgba(0,229,255,0.25)', borderRadius:20, color:S.accent, fontSize:'0.65rem', fontWeight:700, cursor:'pointer' }}>{themeMode==='dark'?'🌙':themeMode==='light'?'☀️':'🌓'}</button>
-          <div style={{ fontSize:'0.75rem', color:S.text2, padding:'2px 8px', background:'rgba(255,255,255,0.05)', borderRadius:20 }}>{session.user.email.split('@')[0]}</div>
+          <div style={{ display:'none' }}></div>
         </div>
         <div style={{ display:'flex', alignItems:'center', gap:16 }}>
           <div style={{ textAlign:'right' }}>
@@ -711,43 +769,7 @@ async function importaCSV(e) {
           </Card>
         </>}
 
-        {view==='settings'&&<>
-          <Card>
-            <CardTitle>Impostazioni veicolo</CardTitle>
-            {[{label:'Capacità batteria (kWh)',key:'batteria',type:'number',step:1},{label:'Prezzo default €/kWh',key:'prezzo',type:'number',step:0.001},{label:'Targa / Nome veicolo',key:'targa',type:'text'}].map(f=>(
-              <div key={f.key} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 0', borderBottom:`1px solid rgba(255,255,255,0.05)` }}>
-                <div style={{ fontSize:'0.85rem' }}>{f.label}</div>
-                <input type={f.type} step={f.step} value={settings[f.key]} onChange={e=>setSettings({...settings,[f.key]:f.type==='number'?parseFloat(e.target.value)||0:e.target.value})} style={{...inputSt,width:100,textAlign:'right'}}/>
-              </div>
-            ))}
-          </Card>
-          <Card>
-            <CardTitle>Preset % batteria</CardTitle>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
-              {[{label:'% Prima — op.1',key:'p1a'},{label:'% Prima — op.2',key:'p1b'},{label:'% Dopo — op.1',key:'p2a'},{label:'% Dopo — op.2',key:'p2b'}].map(f=>(
-                <div key={f.key}>
-                  <div style={{ fontSize:'0.65rem', color:S.text2, textTransform:'uppercase', marginBottom:6 }}>{f.label}</div>
-                  <input type="number" value={settings[f.key]} onChange={e=>setSettings({...settings,[f.key]:parseFloat(e.target.value)||0})} style={{...inputSt,textAlign:'right'}}/>
-                </div>
-              ))}
-            </div>
-          </Card>
-          <Card>
-            <CardTitle>Account</CardTitle>
-            <div style={{ fontSize:'0.8rem', color:S.text2, marginBottom:16 }}>Connesso come: <span style={{ color:S.text }}>{session.user.email}</span></div>
-            <button onClick={()=>supabase.auth.signOut()} style={{ width:'100%', padding:12, background:'transparent', border:`1px solid ${S.border}`, borderRadius:10, color:S.text2, fontSize:'0.85rem', cursor:'pointer' }}>🚪 Esci dall'account</button>
-          </Card>
-          <Card>
-            <CardTitle>☁️ Backup Google Sheets</CardTitle>
-            <div style={{ fontSize:'0.75rem', color:S.text2, marginBottom:12, lineHeight:1.6 }}>Inserisci la tua email per attivare il backup automatico su Google Sheets ad ogni salvataggio.</div>
-            <ConfigSheet showToast={showToast} />
-            <button onClick={async()=>{ const adminEmail=localStorage.getItem('mgs5_adminEmail')||''; if(!adminEmail||session.user.email!==adminEmail){showToast('❌ Email non corrisponde','#ef4444');return;} await esportaSheets(); showToast('☁️ Backup inviato a Sheets!'); }} style={{ width:'100%', marginTop:10, padding:12, background:'rgba(16,185,129,0.1)', border:'1px solid rgba(16,185,129,0.35)', borderRadius:10, color:'#10b981', fontSize:'0.85rem', fontWeight:700, cursor:'pointer' }}>☁️ Invia backup a Google Sheets</button>
-          </Card>
-          <Card style={{ borderColor:'rgba(239,68,68,0.3)' }}>
-            <CardTitle style={{ color:'#ef4444' }}>⚠️ Zona pericolosa</CardTitle>
-            <button onClick={()=>setConfirmIdx('all')} style={{ width:'100%', padding:12, background:'transparent', border:'1px solid rgba(239,68,68,0.4)', borderRadius:10, color:'#ef4444', fontSize:'0.85rem', cursor:'pointer' }}>🗑 Cancella tutti i dati</button>
-          </Card>
-        </>}
+        {view==='settings'&&<SettingsView settings={settings} setSettings={setSettings} session={session} S={S} openSec={openSec} setOpenSec={setOpenSec} showToast={showToast} esportaSheets={esportaSheets} setConfirmIdx={setConfirmIdx} inputSt={inputSt}/>}
       </div>
 
       <div style={{ position:'fixed', bottom:0, left:'50%', transform:'translateX(-50%)', width:'100%', maxWidth:480, background:S.navBg, backdropFilter:'blur(20px)', borderTop:`1px solid ${S.border}`, display:'flex', zIndex:100, paddingBottom:'env(safe-area-inset-bottom)' }}>

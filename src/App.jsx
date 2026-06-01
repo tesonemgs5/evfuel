@@ -639,7 +639,7 @@ async function importaCSV(e) {
 
   const iSt = inputSt(S);
   const Card=({children,style={}})=><div style={{background:S.bg2,border:`1px solid ${S.border}`,borderRadius:16,padding:16,marginBottom:12,...style}}>{children}</div>;
-  const CardTitle=({children,style={}})=><div style={{fontSize:'0.65rem',textTransform:'uppercase',letterSpacing:'0.12em',color:S.text2,marginBottom:12,...style}}>{children}</div>;
+  const CardTitle=({children,style={}})=><div style={{fontSize:'0.8rem',textTransform:'uppercase',letterSpacing:'0.12em',color:S.text2,marginBottom:12,...style}}>{children}</div>;
 
   const btnStyle=(color,border)=>({ padding:'16px 0', background:`rgba(${color},0.1)`, border:`1px solid rgba(${color},0.35)`, borderRadius:14, color:`rgb(${color})`, fontSize:'0.85rem', fontWeight:800, textTransform:'uppercase', letterSpacing:'0.06em', cursor:'pointer' });
 
@@ -777,7 +777,7 @@ async function importaCSV(e) {
               <button onClick={importaSheets} style={btnStyle('16,185,129')}>📥 Importa Sheets</button>
               <button onClick={esportaSheets} style={btnStyle('245,158,11')}>📤 Esporta Sheets</button>
             </div>
-            <div style={{ fontSize:'10rem', color:S.text2, marginTop:6, lineHeight:1.6 }}>⚠️ Importa sovrascrive tutti i dati esistenti</div>
+            <div style={{ fontSize:'1rem', color:S.text2, marginTop:6, lineHeight:1.6 }}>⚠️ Importa sovrascrive tutti i dati esistenti</div>
           </Card>
           <Card>
             <CardTitle>Riepilogo mensile</CardTitle>
@@ -804,8 +804,8 @@ async function importaCSV(e) {
                     <div style={{ fontFamily:'monospace', fontSize:'1rem', fontWeight:700, color:S.green }}>€{(v.costo||0).toFixed(2)}</div>
                   </div>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                    <div style={{ fontSize:'0.75rem', color:S.text2 }}>{v.count} ricariche · {(v.kwh||0).toFixed(1)} kWh{kmMese?' · '+kmMese.toLocaleString('it')+' km':''}</div>
-                    {mediaKwh100&&<div style={{ fontFamily:'monospace', fontSize:'0.75rem', color:'#f59e0b' }}>{mediaKwh100.toFixed(2)} kWh/100km</div>}
+                    <div style={{ fontSize:'0.85rem', color:S.text2 }}>{v.count} ricariche · {(v.kwh||0).toFixed(1)} kWh{kmMese?' · '+kmMese.toLocaleString('it')+' km':''}</div>
+                    {mediaKwh100&&<div style={{ fontFamily:'monospace', fontSize:'0.85rem', color:'#f59e0b' }}>{mediaKwh100.toFixed(2)} kWh/100km</div>}
                   </div>
                 </div>
               );

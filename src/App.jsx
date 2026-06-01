@@ -17,12 +17,12 @@ const S = {
   accent2:'#7c3aed', green:'#10b981', text:'#e2e8f0', text2:'#94a3b8'
 };
 
-const inputSt = {
+const inputSt = (S) => ({
   background:'rgba(255,255,255,0.06)', border:`1px solid ${S.border}`, borderRadius:10,
   color:S.text, fontFamily:'monospace', fontSize:'1rem', padding:'10px 12px',
   width:'100%', outline:'none', boxSizing:'border-box',
   MozAppearance:'textfield', appearance:'textfield'
-};
+});
 
 const chipSt = {
   padding:'4px 10px', background:'rgba(0,229,255,0.08)',
@@ -90,7 +90,12 @@ function toDbRecord(r, userId) {
   };
 }
 
-function ConfigSheet({ showToast }) {
+function ConfigSheet({ showToast, inputSt: cInputSt }) {
+  const inputSt = cInputSt || {
+    background:'rgba(255,255,255,0.06)', border:'1px solid rgba(0,229,255,0.15)', borderRadius:10,
+    color:'#e2e8f0', fontFamily:'monospace', fontSize:'1rem', padding:'10px 12px',
+    width:'100%', outline:'none', boxSizing:'border-box'
+  };
   const [editing, setEditing] = useState(false);
   const [email, setEmail] = useState('');
   const [url, setUrl] = useState(SHEETS_URL);
@@ -239,12 +244,12 @@ function AuthScreen() {
           <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
             <div>
               <label style={{ fontSize:'0.62rem', textTransform:'uppercase', color:S.text2, display:'block', marginBottom:6 }}>Email</label>
-              <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="tua@email.com" style={inputSt} onKeyDown={e=>e.key==='Enter'&&handleSubmit()}/>
+              <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="tua@email.com" style={inputSt(S)} onKeyDown={e=>e.key==='Enter'&&handleSubmit()}/>
             </div>
             {mode !== 'reset' && (
               <div>
                 <label style={{ fontSize:'0.62rem', textTransform:'uppercase', color:S.text2, display:'block', marginBottom:6 }}>Password</label>
-                <input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="••••••••" style={inputSt} onKeyDown={e=>e.key==='Enter'&&handleSubmit()}/>
+                <input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="••••••••" style={inputSt(S)} onKeyDown={e=>e.key==='Enter'&&handleSubmit()}/>
               </div>
             )}
           </div>
@@ -268,7 +273,8 @@ function AuthScreen() {
   );
 }
 
-function FormRicarica({ settings, ricariche, editIdx, onSave, onCancel, showToast }) {
+function FormRicarica({ settings, ricariche, editIdx, onSave, onCancel, showToast, inputSt: fInputSt }) {
+  const inputSt = fInputSt || { background:'rgba(255,255,255,0.06)', border:'1px solid rgba(0,229,255,0.15)', borderRadius:10, color:'#e2e8f0', fontFamily:'monospace', fontSize:'1rem', padding:'10px 12px', width:'100%', outline:'none', boxSizing:'border-box', MozAppearance:'textfield', appearance:'textfield' };
   const ex = editIdx !== null ? ricariche[editIdx] : null;
   const [fData,   setFData]   = useState(ex ? ex.data : today());
   const [fLuogo,  setFLuogo]  = useState(ex ? (ex.luogo||'') : '');
@@ -631,6 +637,7 @@ async function importaCSV(e) {
   const chartEff=ricariche.filter(r=>r.kwh100).map(r=>{const d=new Date(r.data);return{x:String(d.getDate()).padStart(2,'0')+'/'+(d.getMonth()+1),y:r.kwh100};});
   const chartPrezzo=ricariche.filter(r=>r.prezzoKwh>0).map(r=>{const d=new Date(r.data);return{x:String(d.getDate()).padStart(2,'0')+'/'+(d.getMonth()+1),y:r.prezzoKwh};});
 
+  const iSt = inputSt(S);
   const Card=({children,style={}})=><div style={{background:S.bg2,border:`1px solid ${S.border}`,borderRadius:16,padding:16,marginBottom:12,...style}}>{children}</div>;
   const CardTitle=({children,style={}})=><div style={{fontSize:'0.65rem',textTransform:'uppercase',letterSpacing:'0.12em',color:S.text2,marginBottom:12,...style}}>{children}</div>;
 
@@ -751,7 +758,7 @@ async function importaCSV(e) {
           })()}
         </>}
 
-        {view==='add'&&<FormRicarica settings={settings} ricariche={ricariche} editIdx={editIdx} onSave={salvaRicarica} onCancel={editIdx!==null?()=>{setEditIdx(null);setView('home');}:null} showToast={showToast}/>}
+        {view==='add'&&<FormRicarica settings={settings} ricariche={ricariche} editIdx={editIdx} onSave={salvaRicarica} onCancel={editIdx!==null?()=>{setEditIdx(null);setView('home');}:null} showToast={showToast} inputSt={iSt}/>}
 
         {view==='charts'&&<>
           <Card><CardTitle>Costo mensile (€)</CardTitle><BarChart data={chartMensile} color={S.accent}/></Card>
@@ -784,7 +791,7 @@ async function importaCSV(e) {
           </Card>
         </>}
 
-        {view==='settings'&&<SettingsView settings={settings} setSettings={setSettings} session={session} S={S} openSec={openSec} setOpenSec={setOpenSec} showToast={showToast} esportaSheets={esportaSheets} setConfirmIdx={setConfirmIdx} inputSt={inputSt}/>}
+        {view==='settings'&&<SettingsView settings={settings} setSettings={setSettings} session={session} S={S} openSec={openSec} setOpenSec={setOpenSec} showToast={showToast} esportaSheets={esportaSheets} setConfirmIdx={setConfirmIdx} inputSt={iSt}/>}
       </div>
 
       <div style={{ position:'fixed', bottom:0, left:'50%', transform:'translateX(-50%)', width:'100%', maxWidth:480, background:S.navBg, backdropFilter:'blur(20px)', borderTop:`1px solid ${S.border}`, display:'flex', zIndex:100, paddingBottom:'env(safe-area-inset-bottom)' }}>

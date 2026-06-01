@@ -781,12 +781,35 @@ async function importaCSV(e) {
           </Card>
           <Card>
             <CardTitle>Riepilogo mensile</CardTitle>
-            {Object.entries((() => { const pm={}; ricariche.forEach(r=>{const d=new Date(r.data);const k=MESI_NOMI[d.getMonth()]+' '+d.getFullYear();if(!pm[k])pm[k]={costo:0,kwh:0,count:0,anno:d.getFullYear(),mese:d.getMonth()};pm[k].costo+=r.costo;pm[k].kwh+=r.kwhEff;pm[k].count++;}); return pm; })()).sort((a,b)=>{ const [,va]=a; const [,vb]=b; return vb.anno!==va.anno?vb.anno-va.anno:vb.mese-va.mese; }).map(([mese,v])=>(
-              <div key={mese} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 0', borderBottom:`1px solid rgba(255,255,255,0.05)` }}>
-                <div><div style={{ fontSize:'0.85rem' }}>{mese}</div><div style={{ fontSize:'0.65rem', color:S.text2 }}>{v.count} ricariche · {(v.kwh||0).toFixed(1)} kWh</div></div>
-                <div style={{ fontFamily:'monospace', color:S.green }}>€{(v.costo||0).toFixed(2)}</div>
-              </div>
-            ))}
+            {Object.entries((() => {
+              const pm={};
+              ricariche.forEach(r=>{
+                const d=new Date(r.data);
+                const k=MESI_NOMI[d.getMonth()]+' '+d.getFullYear();
+                if(!pm[k])pm[k]={costo:0,kwh:0,count:0,anno:d.getFullYear(),mese:d.getMonth(),kmMin:null,kmMax:null,kwh100list:[]};
+                pm[k].costo+=r.costo;
+                pm[k].kwh+=r.kwhEff;
+                pm[k].count++;
+                if(r.km){if(pm[k].kmMin===null||r.km<pm[k].kmMin)pm[k].kmMin=r.km;if(pm[k].kmMax===null||r.km>pm[k].kmMax)pm[k].kmMax=r.km;}
+                if(r.kwh100)pm[k].kwh100list.push(r.kwh100);
+              });
+              return pm;
+            })()).sort((a,b)=>{ const [,va]=a; const [,vb]=b; return vb.anno!==va.anno?vb.anno-va.anno:vb.mese-va.mese; }).map(([mese,v])=>{
+              const kmMese = (v.kmMin!==null&&v.kmMax!==null&&v.kmMax>v.kmMin) ? v.kmMax-v.kmMin : null;
+              const mediaKwh100 = v.kwh100list.length ? v.kwh100list.reduce((s,x)=>s+x,0)/v.kwh100list.length : null;
+              return (
+                <div key={mese} style={{ padding:'14px 0', borderBottom:`1px solid rgba(255,255,255,0.05)` }}>
+                  <div style={{ display:'flex', alignItems:'baseline', justifyContent:'space-between', marginBottom:4 }}>
+                    <div style={{ fontSize:'1rem', fontWeight:700 }}>{mese}</div>
+                    <div style={{ fontFamily:'monospace', fontSize:'1rem', fontWeight:700, color:S.green }}>€{(v.costo||0).toFixed(2)}</div>
+                  </div>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                    <div style={{ fontSize:'0.75rem', color:S.text2 }}>{v.count} ricariche · {(v.kwh||0).toFixed(1)} kWh{kmMese?' · '+kmMese.toLocaleString('it')+' km':''}</div>
+                    {mediaKwh100&&<div style={{ fontFamily:'monospace', fontSize:'0.75rem', color:'#f59e0b' }}>{mediaKwh100.toFixed(2)} kWh/100km</div>}
+                  </div>
+                </div>
+              );
+            })}
             {!ricariche.length&&<div style={{ textAlign:'center', padding:20, color:S.text2, fontSize:'0.85rem' }}>Nessun dato</div>}
           </Card>
         </>}

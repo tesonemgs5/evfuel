@@ -777,7 +777,7 @@ async function importaCSV(e) {
               <button onClick={importaSheets} style={btnStyle('16,185,129')}>📥 Importa Sheets</button>
               <button onClick={esportaSheets} style={btnStyle('245,158,11')}>📤 Esporta Sheets</button>
             </div>
-            <div style={{ fontSize:'1rem', color:S.text2, marginTop:6, lineHeight:1.6 }}>⚠️ Importa sovrascrive tutti i dati esistenti</div>
+            <div style={{ fontSize:'5rem', color:S.text2, marginTop:6, lineHeight:1.6 }}>⚠️ Importa sovrascrive tutti i dati esistenti</div>
           </Card>
           <Card>
             <CardTitle>Riepilogo mensile</CardTitle>

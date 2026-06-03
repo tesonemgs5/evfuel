@@ -250,6 +250,7 @@ export default function App() {
   const [editIdx, setEditIdx] = useState(null);
   const [confirmIdx, setConfirmIdx] = useState(null);
   const [mesiAperti, setMesiAperti] = useState({});
+  const [openSec, setOpenSec] = useState({ veicolo: true, preset: false, account: false, sheets: false, danger: false });
   const [toast, setToast] = useState(null);
 
   const showToast = (msg, color = '#10b981') => { setToast({ msg, color }); setTimeout(() => setToast(null), 2500); };
@@ -326,6 +327,8 @@ export default function App() {
 
   const graficiMesi = Object.keys(raggruppatoPerMese).sort().slice(-6).map(m => ({ x: MESI_BREVI[parseInt(m.split('-')[1]) - 1], y: raggruppatoPerMese[m].costoTotale }));
   const graficiConsumi = ricariche.filter(r => r.kwh100 > 0).slice(-10).map((r, i) => ({ x: i + 1, y: r.kwh100 }));
+
+  const toggleSec = (key) => setOpenSec(p => ({ ...p, [key]: !p[key] }));
 
   return (
     <div style={{ fontFamily:'system-ui,sans-serif', background:theme.bg, color:theme.text, minHeight:'100vh', maxWidth:480, margin:'0 auto', paddingBottom:80, position:'relative', boxSizing:'border-box' }}>
@@ -414,22 +417,97 @@ export default function App() {
         )}
 
         {view === 'settings' && (
-          <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-            <div style={{ background:theme.bg2, padding:16, borderRadius:16, border:`1px solid ${theme.border}` }}>
-              <label style={{ fontSize:'0.7rem', color:theme.text2 }}>TARGA / NOME VEICOLO</label>
-              <input type="text" value={settings.targa} onChange={e=>setSettings({...settings, targa:e.target.value})} style={inputSt(theme)}/>
+          <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+            
+            {/* Sezione Veicolo */}
+            <div style={{ background:theme.bg2, border:`1px solid ${theme.border}`, borderRadius:16, overflow:'hidden' }}>
+              <div onClick={()=>toggleSec('veicolo')} style={{ padding:14, fontWeight:700, cursor:'pointer', display:'flex', justifyContent:'space-between' }}>
+                <span>🚗 Veicolo</span><span>{openSec.veicolo ? '▲' : '▼'}</span>
+              </div>
+              {openSec.veicolo && (
+                <div style={{ padding:14, borderTop:`1px solid ${theme.border}`, display:'flex', flexDirection:'column', gap:10 }}>
+                  <div>
+                    <label style={{ fontSize:'0.65rem', color:theme.text2 }}>TARGA / NOME</label>
+                    <input type="text" value={settings.targa} onChange={e=>setSettings({...settings, targa:e.target.value})} style={inputSt(theme)}/>
+                  </div>
+                  <div>
+                    <label style={{ fontSize:'0.65rem', color:theme.text2 }}>CAPACITÀ BATTERIA (kWh)</label>
+                    <input type="number" value={settings.batteria} onChange={e=>setSettings({...settings, batteria:parseFloat(e.target.value)||64})} style={inputSt(theme)}/>
+                  </div>
+                  <div>
+                    <label style={{ fontSize:'0.65rem', color:theme.text2 }}>PREZZO DEFAULT (€/kWh)</label>
+                    <input type="number" value={settings.prezzo} onChange={e=>setSettings({...settings, prezzo:parseFloat(e.target.value)||0.5})} step="0.01" style={inputSt(theme)}/>
+                  </div>
+                </div>
+              )}
             </div>
-            <div style={{ background:theme.bg2, padding:16, borderRadius:16, border:`1px solid ${theme.border}` }}>
-              <label style={{ fontSize:'0.7rem', color:theme.text2 }}>CAPACITÀ BATTERIA (kWh)</label>
-              <input type="number" value={settings.batteria} onChange={e=>setSettings({...settings, batteria:parseFloat(e.target.value)||64})} style={inputSt(theme)}/>
+
+            {/* Sezione Preset */}
+            <div style={{ background:theme.bg2, border:`1px solid ${theme.border}`, borderRadius:16, overflow:'hidden' }}>
+              <div onClick={()=>toggleSec('preset')} style={{ padding:14, fontWeight:700, cursor:'pointer', display:'flex', justifyContent:'space-between' }}>
+                <span>🔢 Pulsanti Rapidi (%)</span><span>{openSec.preset ? '▲' : '▼'}</span>
+              </div>
+              {openSec.preset && (
+                <div style={{ padding:14, borderTop:`1px solid ${theme.border}`, display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+                  <div><label style={{ fontSize:'0.65rem', color:theme.text2 }}>Prima (A)</label><input type="number" value={settings.p1a} onChange={e=>setSettings({...settings, p1a:parseInt(e.target.value)||0})} style={inputSt(theme)}/></div>
+                  <div><label style={{ fontSize:'0.65rem', color:theme.text2 }}>Prima (B)</label><input type="number" value={settings.p1b} onChange={e=>setSettings({...settings, p1b:parseInt(e.target.value)||0})} style={inputSt(theme)}/></div>
+                  <div><label style={{ fontSize:'0.65rem', color:theme.text2 }}>Dopo (A)</label><input type="number" value={settings.p2a} onChange={e=>setSettings({...settings, p2a:parseInt(e.target.value)||0})} style={inputSt(theme)}/></div>
+                  <div><label style={{ fontSize:'0.65rem', color:theme.text2 }}>Dopo (B)</label><input type="number" value={settings.p2b} onChange={e=>setSettings({...settings, p2b:parseInt(e.target.value)||0})} style={inputSt(theme)}/></div>
+                </div>
+              )}
             </div>
-            <button onClick={()=>supabase.auth.signOut()} style={{ width:'100%', padding:12, background:'transparent', border:`1px solid ${theme.border}`, color:'#ef4444', borderRadius:10, cursor:'pointer' }}>🚪 Esci dall'account</button>
+
+            {/* Sezione Sincronizzazione */}
+            <div style={{ background:theme.bg2, border:`1px solid ${theme.border}`, borderRadius:16, overflow:'hidden' }}>
+              <div onClick={()=>toggleSec('sheets')} style={{ padding:14, fontWeight:700, cursor:'pointer', display:'flex', justifyContent:'space-between' }}>
+                <span>📊 Google Sheets</span><span>{openSec.sheets ? '▲' : '▼'}</span>
+              </div>
+              {openSec.sheets && (
+                <div style={{ padding:14, borderTop:`1px solid ${theme.border}`, display:'flex', flexDirection:'column', gap:10 }}>
+                  <div>
+                    <label style={{ fontSize:'0.65rem', color:theme.text2 }}>EMAIL AMMINISTRATORE</label>
+                    <input type="text" defaultValue={localStorage.getItem('mgs5_adminEmail')||''} onChange={e=>localStorage.setItem('mgs5_adminEmail',e.target.value)} placeholder="tua@email.com" style={inputSt(theme)}/>
+                  </div>
+                  <div>
+                    <label style={{ fontSize:'0.65rem', color:theme.text2 }}>WEB APP URL</label>
+                    <input type="text" defaultValue={localStorage.getItem('mgs5_sheetsUrl')||''} onChange={e=>localStorage.setItem('mgs5_sheetsUrl',e.target.value)} placeholder="https://script.google.com/..." style={inputSt(theme)}/>
+                  </div>
+                  <button onClick={esportaSheets} style={{ padding:10, background:'rgba(16,185,129,0.1)', border:'1px solid #10b981', color:'#10b981', borderRadius:10, cursor:'pointer', fontWeight:700 }}>Esporta Ora</button>
+                </div>
+              )}
+            </div>
+
+            {/* Sezione Account */}
+            <div style={{ background:theme.bg2, border:`1px solid ${theme.border}`, borderRadius:16, overflow:'hidden' }}>
+              <div onClick={()=>toggleSec('account')} style={{ padding:14, fontWeight:700, cursor:'pointer', display:'flex', justifyContent:'space-between' }}>
+                <span>👤 Account</span><span>{openSec.account ? '▲' : '▼'}</span>
+              </div>
+              {openSec.account && (
+                <div style={{ padding:14, borderTop:`1px solid ${theme.border}`, display:'flex', flexDirection:'column', gap:4 }}>
+                  <div style={{ fontSize:'0.85rem', marginBottom:10, color:theme.text2 }}>Connesso come: <br/><strong style={{color:theme.text}}>{session.user.email}</strong></div>
+                  <button onClick={()=>supabase.auth.signOut()} style={{ width:'100%', padding:12, background:'transparent', border:`1px solid ${theme.border}`, color:'#ef4444', borderRadius:10, cursor:'pointer' }}>🚪 Esci</button>
+                </div>
+              )}
+            </div>
+
+            {/* Sezione Pericolo */}
+            <div style={{ background:theme.bg2, border:'1px solid rgba(239,68,68,0.2)', borderRadius:16, overflow:'hidden' }}>
+              <div onClick={()=>toggleSec('danger')} style={{ padding:14, fontWeight:700, cursor:'pointer', color:'#ef4444', display:'flex', justifyContent:'space-between' }}>
+                <span>⚠️ Zona Pericolo</span><span>{openSec.danger ? '▲' : '▼'}</span>
+              </div>
+              {openSec.danger && (
+                <div style={{ padding:14, borderTop:'1px solid rgba(239,68,68,0.2)', background:'rgba(239,68,68,0.02)' }}>
+                  <button onClick={()=>setConfirmIdx('all')} style={{ width:'100%', padding:12, background:'#ef4444', border:'none', color:'#fff', borderRadius:10, cursor:'pointer', fontWeight:700 }}>CANCELLA TUTTI I DATI</button>
+                </div>
+              )}
+            </div>
+
           </div>
         )}
       </main>
 
       <nav style={{ position:'fixed', bottom:0, left:'50%', transform:'translateX(-50%)', width:'100%', maxWidth:480, background:theme.navBg, borderTop:`1px solid ${theme.border}`, display:'flex', padding:'8px 0', zIndex:200 }}>
-        {[{id:'home',l:'Home',i:'🏠'},{id:'grafici',l:'Grafici',i:'📊'},{id:'settings',l:'Impostazioni',i:'⚙️'}].map(t => (
+        {[{id:'home',l:'Home',i:'🏠'},{id:'grafici',l:'Grafici',i:'📊'},{id:'settings',l:'Opzioni',i:'⚙️'}].map(t => (
           <button key={t.id} onClick={()=>{setView(t.id);setEditIdx(null);}} style={{ flex:1, background:'transparent', border:'none', color: view===t.id ? theme.accent : theme.text2, cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center' }}>
             <span>{t.i}</span><span style={{ fontSize:'0.65rem' }}>{t.l}</span>
           </button>

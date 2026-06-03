@@ -112,9 +112,10 @@ function ricalcolaKmParziali(lista) {
   return lista.map((r, i) => {
     if (r.km && r.km > 0) {
       const prev = lista.slice(0, i).filter(x => x.km && x.km > 0).pop();
-      const kmParziali = prev ? r.km - prev.km : r.kmParziali;
-      const kwh100 = kmParziali && kmParziali > 0 ? (r.kwhEff / kmParziali) * 100 : r.kwh100;
-      return { ...r, kmParziali: kmParziali || r.kmParziali, kwh100 };
+      if (!prev) return { ...r, kmParziali: null, kwh100: null };
+      const kmParziali = r.km - prev.km;
+      const kwh100 = kmParziali > 0 ? (r.kwhEff / kmParziali) * 100 : null;
+      return { ...r, kmParziali, kwh100 };
     }
     return r;
   });

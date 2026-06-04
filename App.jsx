@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = "https://svhvqgqnspwzlluvujhs.supabase.co";
-const SUPABASE_KEY = "eyJ..."; // la tua anon key
+const SUPABASE_KEY = "sb_publishable_zcQh5dxosIqV9xAMIsuFQA_CLJ3nmeR";
 const SHEETS_URL = "https://script.google.com/macros/s/AKfycbyb70PcCzlVoACCdodeyJ2vmhg9v1_NaEAIlkj_jpBvE4RuFK0kO5d24zsKkAC2Ccwc/exec";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 

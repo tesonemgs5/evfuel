@@ -36,7 +36,6 @@ const THEMES = {
   }
 };
 
-// Fallback theme (dark) used by components that need S before theme is available
 const S = THEMES.dark;
 
 const inputSt = (theme) => ({
@@ -65,7 +64,6 @@ const chipSt = {
   cursor: 'pointer'
 };
 
-// Remove number input spinners globally
 const noSpinnerStyle = document.createElement('style');
 noSpinnerStyle.textContent = 'input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}';
 document.head.appendChild(noSpinnerStyle);
@@ -239,88 +237,6 @@ function ConfirmDialog({ messaggio, onConfirm, onCancel }) {
   );
 }
 
-function AuthScreen() {
-  const [mode, setMode] = useState('login');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState(null);
-
-  async function handleSubmit() {
-    if (!email || (!password && mode !== 'reset')) { setMsg({ text: 'Compila tutti i campi', color: '#f59e0b' }); return; }
-    setLoading(true); setMsg(null);
-    try {
-      if (mode === 'login') {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-      } else if (mode === 'register') {
-        const { error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-        setMsg({ text: '✅ Registrato! Controlla la tua email per confermare.', color: '#10b981' });
-        setMode('login'); setLoading(false); return;
-      } else if (mode === 'reset') {
-        const { error } = await supabase.auth.resetPasswordForEmail(email);
-        if (error) throw error;
-        setMsg({ text: '✅ Email inviata! Controlla la casella.', color: '#10b981' });
-        setLoading(false); return;
-      }
-    } catch (e) {
-      setMsg({ text: '❌ ' + (e.message || 'Errore'), color: '#ef4444' });
-    }
-    setLoading(false);
-  }
-
-  return (
-    <div style={{ fontFamily: 'system-ui,sans-serif', background: S.bg, color: S.text, minHeight: '100vh', maxWidth: 480, margin: '0 auto', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-      <div style={{ width: '100%', maxWidth: 360 }}>
-        <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <div style={{ fontSize: '2.5rem', fontWeight: 900, letterSpacing: '0.05em', marginBottom: 8 }}>
-            MG<span style={{ color: '#ef4444' }}>S5</span>
-          </div>
-          <div style={{ fontSize: '0.8rem', color: S.text2, textTransform: 'uppercase', letterSpacing: '0.12em' }}>
-            Gestione Ricariche EV
-          </div>
-        </div>
-        <div style={{ background: S.bg2, border: `1px solid ${S.border}`, borderRadius: 20, padding: 24 }}>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
-            {['login', 'register'].map(m => (
-              <button key={m} onClick={() => { setMode(m); setMsg(null); }} style={{ flex: 1, padding: '10px 0', background: mode === m ? `linear-gradient(135deg,${S.accent},${S.accent2})` : 'transparent', border: mode === m ? 'none' : `1px solid ${S.border}`, borderRadius: 10, color: mode === m ? '#fff' : S.text2, fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', cursor: 'pointer' }}>
-                {m === 'login' ? 'Accedi' : 'Registrati'}
-              </button>
-            ))}
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div>
-              <label style={{ fontSize: '0.62rem', textTransform: 'uppercase', color: S.text2, display: 'block', marginBottom: 6 }}>Email</label>
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="tua@email.com" style={inputSt(S)} onKeyDown={e => e.key === 'Enter' && handleSubmit()} />
-            </div>
-            {mode !== 'reset' && (
-              <div>
-                <label style={{ fontSize: '0.62rem', textTransform: 'uppercase', color: S.text2, display: 'block', marginBottom: 6 }}>Password</label>
-                <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" style={inputSt(S)} onKeyDown={e => e.key === 'Enter' && handleSubmit()} />
-              </div>
-            )}
-          </div>
-          {msg && <div style={{ marginTop: 14, padding: '10px 14px', background: msg.color + '22', border: `1px solid ${msg.color}44`, borderRadius: 10, color: msg.color, fontSize: '0.8rem' }}>{msg.text}</div>}
-          <button onClick={handleSubmit} disabled={loading} style={{ width: '100%', marginTop: 20, padding: '14px 0', background: `linear-gradient(135deg,${S.accent},${S.accent2})`, border: 'none', borderRadius: 12, color: '#fff', fontSize: '0.9rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', cursor: 'pointer', opacity: loading ? 0.6 : 1 }}>
-            {loading ? '...' : mode === 'login' ? '⚡ Accedi' : mode === 'register' ? '🚀 Registrati' : '📧 Invia email'}
-          </button>
-          {mode === 'login' && (
-            <button onClick={() => { setMode('reset'); setMsg(null); }} style={{ width: '100%', marginTop: 10, padding: '10px 0', background: 'transparent', border: 'none', color: S.text2, fontSize: '0.75rem', cursor: 'pointer' }}>
-              Password dimenticata?
-            </button>
-          )}
-          {mode === 'reset' && (
-            <button onClick={() => { setMode('login'); setMsg(null); }} style={{ width: '100%', marginTop: 10, padding: '10px 0', background: 'transparent', border: 'none', color: S.text2, fontSize: '0.75rem', cursor: 'pointer' }}>
-              ← Torna al login
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function FormRicarica({ settings, ricariche, editIdx, onSave, onCancel, showToast, theme }) {
   const T = theme || S;
   const ex = editIdx !== null ? ricariche[editIdx] : null;
@@ -450,10 +366,7 @@ function FormRicarica({ settings, ricariche, editIdx, onSave, onCancel, showToas
   );
 }
 
-function getSystemTheme() { return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; }
-
 export default function App() {
-  const [session,    setSession]    = useState(true);
   const [view,       setView]       = useState('home');
   const [themeMode,  setThemeMode]  = useState(() => localStorage.getItem('mgs5_theme') || 'auto');
   const [ricariche,  setRicariche]  = useState([]);
@@ -466,10 +379,6 @@ export default function App() {
   const [mesiAperti, setMesiAperti] = useState({});
   const [openSec,    setOpenSec]    = useState({ veicolo: true, preset: false, account: false, sheets: false, danger: false });
   const { toast, show: showToast }  = useToast();
-
-  useEffect(() => {
-    setSession(true);
-  }, []);
 
   useEffect(() => { loadRicariche(); }, []);
   useEffect(() => { try { localStorage.setItem('mgs5_settings', JSON.stringify(settings)); } catch {} }, [settings]);
@@ -491,32 +400,26 @@ export default function App() {
   }
 
   async function salvaRicarica(record) {
-    const userId = session?.user?.id || 'default';
-    const dbRecord = toDbRecord(record, userId);
     const nuove = record.id
       ? ricariche.map(r => r.id === record.id ? record : r)
       : [...ricariche, { ...record, id: Date.now() }];
     setRicariche(ricalcolaKmParziali(nuove));
     showToast(record.id ? '✅ Aggiornata!' : '✅ Salvata!');
     const adminEmail = localStorage.getItem('mgs5_adminEmail') || '';
-    if (adminEmail && session?.user?.email === adminEmail) { await esportaSheets(); }
+    if (adminEmail) { await esportaSheets(); }
     setEditIdx(null); setView('home');
   }
 
   async function cancellaRicarica(idx) {
-    const userId = session?.user?.id || 'default';
-    if (!userId) return;
     if (idx === 'all') {
-      setricariche([]);
-      showtoast('🗑 dati resettati');
+      setRicariche([]);
+      showToast('🗑 Dati resettati');
     } else {
-      setricariche(ricalcolakmparziali(ricariche.filter((_, i) => i !== idx)));
+      setRicariche(ricalcolaKmParziali(ricariche.filter((_, i) => i !== idx)));
       showToast('🗑 Ricarica rimossa');
     }
-    setConfirmIdx(null); await loadRicariche();
+    setConfirmIdx(null);
   }
-
-  
 
   const isDark = themeMode === 'auto' ? window.matchMedia('(prefers-color-scheme: dark)').matches : themeMode === 'dark';
   const theme = isDark ? THEMES.dark : THEMES.light;
@@ -685,24 +588,12 @@ export default function App() {
                   <ConfigSheet showToast={showToast} theme={theme} />
                   <button onClick={async () => {
                     const adminEmail = localStorage.getItem('mgs5_adminEmail') || '';
-                    if (!adminEmail || session.user.email !== adminEmail) { showToast('❌ Email non corrisponde', '#ef4444'); return; }
+                    if (!adminEmail) { showToast('❌ Imposta prima l\'email admin', '#ef4444'); return; }
                     await esportaSheets();
                     showToast('☁️ Backup inviato a Sheets!');
                   }} style={{ padding: 10, background: 'rgba(16,185,129,0.1)', border: '1px solid #10b981', color: '#10b981', borderRadius: 10, cursor: 'pointer', fontWeight: 700 }}>
                     ☁️ Esporta Ora
                   </button>
-                </div>
-              )}
-            </div>
-
-            <div style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 16, overflow: 'hidden' }}>
-              <div onClick={() => toggleSec('account')} style={{ padding: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', justifyContent: 'space-between' }}>
-                <span>👤 Account</span><span>{openSec.account ? '▲' : '▼'}</span>
-              </div>
-              {openSec.account && (
-                <div style={{ padding: 14, borderTop: `1px solid ${theme.border}`, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <div style={{ fontSize: '0.85rem', marginBottom: 10, color: theme.text2 }}>Connesso come:<br /><strong style={{ color: theme.text }}>{session?.user?.email}</strong></div>
-                  <button onClick={() => {}} style={{ width: '100%', padding: 12, background: 'transparent', border: `1px solid ${theme.border}`, color: '#ef4444', borderRadius: 10, cursor: 'pointer' }}>🚪 Esci</button>
                 </div>
               )}
             </div>

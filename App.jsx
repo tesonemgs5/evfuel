@@ -477,7 +477,7 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  useEffect(() => { if (session) loadRicariche(); }, [session]);
+  useEffect(() => { loadRicariche(); }, []);
   useEffect(() => { try { localStorage.setItem('mgs5_settings', JSON.stringify(settings)); } catch {} }, [settings]);
 
   async function loadRicariche() {

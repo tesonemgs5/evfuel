@@ -501,8 +501,8 @@ export default function App() {
   }
 
   async function salvaRicarica(record) {
-    if (!session?.user?.id) { showToast('❌ Errore sessione', '#ef4444'); return; }
-    const dbRecord = toDbRecord(record, session.user.id);
+    const userId = session?.user?.id || 'default';
+    const dbRecord = toDbRecord(record, userId);
     const { error } = record.id
       ? await supabase.from('ricariche').update(dbRecord).eq('id', record.id)
       : await supabase.from('ricariche').insert(dbRecord);
@@ -514,7 +514,8 @@ export default function App() {
   }
 
   async function cancellaRicarica(idx) {
-    if (!session?.user?.id) return;
+    const userId = session?.user?.id || 'default';
+    if (!userId) return;
     if (idx === 'all') {
       await supabase.from('ricariche').delete().eq('user_id', session.user.id);
       showToast('🗑 Dati resettati');

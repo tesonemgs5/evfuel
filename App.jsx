@@ -527,7 +527,7 @@ export default function App() {
     setConfirmIdx(null); await loadRicariche();
   }
 
-  if (session === undefined) return null;
+  if (session === undefined) return <div style={{color:'#e2e8f0',background:'#0a0f1e',minheight:'100vh',display:'flex',alignitems:'center',justifycontent:'center'}}>caricamento...</div>;
   
 
   const isDark = themeMode === 'auto' ? window.matchMedia('(prefers-color-scheme: dark)').matches : themeMode === 'dark';

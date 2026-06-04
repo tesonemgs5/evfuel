@@ -475,11 +475,7 @@ export default function App() {
   useEffect(() => { try { localStorage.setItem('mgs5_settings', JSON.stringify(settings)); } catch {} }, [settings]);
 
   async function loadRicariche() {
-    setLoading(true);
-    const { data, error } = await supabase.from('ricariche').select('*').order('km', { ascending: true, nullsFirst: false });
-    setLoading(false);
-    if (error) { showToast('❌ Errore caricamento', '#ef4444'); return; }
-    setRicariche(ricalcolaKmParziali((data || []).map(sanitizzaRicarica)));
+    setRicariche([]);
   }
 
   async function esportaSheets() {
@@ -497,10 +493,10 @@ export default function App() {
   async function salvaRicarica(record) {
     const userId = session?.user?.id || 'default';
     const dbRecord = toDbRecord(record, userId);
-    const { error } = record.id
-      ? await supabase.from('ricariche').update(dbRecord).eq('id', record.id)
-      : await supabase.from('ricariche').insert(dbRecord);
-    if (error) { showToast('❌ Errore', '#ef4444'); return; }
+    const nuove = record.id
+      ? ricariche.map(r => r.id === record.id ? record : r)
+      : [...ricariche, { ...record, id: Date.now() }];
+    setRicariche(ricalcolaKmParziali(nuove));
     showToast(record.id ? '✅ Aggiornata!' : '✅ Salvata!');
     const adminEmail = localStorage.getItem('mgs5_adminEmail') || '';
     if (adminEmail && session?.user?.email === adminEmail) { await esportaSheets(); }
@@ -511,11 +507,10 @@ export default function App() {
     const userId = session?.user?.id || 'default';
     if (!userId) return;
     if (idx === 'all') {
-      await supabase.from('ricariche').delete().eq('user_id', session.user.id);
-      showToast('🗑 Dati resettati');
+      setricariche([]);
+      showtoast('🗑 dati resettati');
     } else {
-      const r = ricariche[idx];
-      if (r.id) await supabase.from('ricariche').delete().eq('id', r.id);
+      setricariche(ricalcolakmparziali(ricariche.filter((_, i) => i !== idx)));
       showToast('🗑 Ricarica rimossa');
     }
     setConfirmIdx(null); await loadRicariche();
@@ -708,7 +703,7 @@ export default function App() {
               {openSec.account && (
                 <div style={{ padding: 14, borderTop: `1px solid ${theme.border}`, display: 'flex', flexDirection: 'column', gap: 4 }}>
                   <div style={{ fontSize: '0.85rem', marginBottom: 10, color: theme.text2 }}>Connesso come:<br /><strong style={{ color: theme.text }}>{session?.user?.email}</strong></div>
-                  <button onClick={() => supabase.auth.signOut()} style={{ width: '100%', padding: 12, background: 'transparent', border: `1px solid ${theme.border}`, color: '#ef4444', borderRadius: 10, cursor: 'pointer' }}>🚪 Esci</button>
+                  <button onClick={() => {}} style={{ width: '100%', padding: 12, background: 'transparent', border: `1px solid ${theme.border}`, color: '#ef4444', borderRadius: 10, cursor: 'pointer' }}>🚪 Esci</button>
                 </div>
               )}
             </div>

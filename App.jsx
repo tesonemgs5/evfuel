@@ -527,7 +527,7 @@ export default function App() {
   }
 
   if (session === undefined) return null;
-  if (!session) return <AuthScreen />;
+  
 
   const isDark = themeMode === 'auto' ? window.matchMedia('(prefers-color-scheme: dark)').matches : themeMode === 'dark';
   const theme = isDark ? THEMES.dark : THEMES.light;

@@ -468,9 +468,7 @@ export default function App() {
   const { toast, show: showToast }  = useToast();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => setSession(session));
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setSession(session));
-    return () => subscription.unsubscribe();
+    setSession(true);
   }, []);
 
   useEffect(() => { loadRicariche(); }, []);

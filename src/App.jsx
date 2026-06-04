@@ -500,7 +500,7 @@ export default function App() {
     showToast(record.id ? '✅ Aggiornata!' : '✅ Salvata!');
     const adminEmail = localStorage.getItem('mgs5_adminEmail') || '';
     if (adminEmail && session?.user?.email === adminEmail) { await esportaSheets(); }
-    setEditIdx(null); setView('home'); await loadRicariche();
+    setEditIdx(null); setView('home');
   }
 
   async function cancellaRicarica(idx) {

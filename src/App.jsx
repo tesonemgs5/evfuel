@@ -456,14 +456,23 @@ export default function App() {
       {toast && <div style={{ position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 500, padding: '12px 24px', background: toast.color, color: '#fff', borderRadius: 30, fontWeight: 700, whiteSpace: 'nowrap' }}>{toast.msg}</div>}
       {confirmIdx !== null && <ConfirmDialog messaggio={confirmIdx === 'all' ? 'Vuoi cancellare tutto?' : 'Cancellare la ricarica?'} onConfirm={() => cancellaRicarica(confirmIdx)} onCancel={() => setConfirmIdx(null)} theme={theme} />}
 
-      <header style={{ position: 'sticky', top: 0, zIndex: 100, background: theme.headerBg, backdropFilter: 'blur(12px)', borderBottom: `1px solid ${theme.border}`, padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <div style={{ fontSize: '1.3rem', fontWeight: 900 }}>MG<span style={{ color: '#ef4444' }}>S5</span></div>
-          <div style={{ fontSize: '0.65rem', color: theme.text2 }}>{settings.targa} • {ricariche.length} ricariche</div>
+      <header style={{ position: 'sticky', top: 0, zIndex: 100, background: theme.headerBg, backdropFilter: 'blur(12px)', borderBottom: `1px solid ${theme.border}`, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ fontSize: '1.4rem', fontWeight: 900 }}>MG<span style={{ color: '#ef4444' }}>S5</span></div>
+          <button onClick={() => { const n = themeMode === 'dark' ? 'light' : themeMode === 'light' ? 'auto' : 'dark'; setThemeMode(n); localStorage.setItem('mgs5_theme', n); }} style={{ padding: '4px 8px', background: 'rgba(255,255,255,0.05)', border: `1px solid ${theme.border}`, borderRadius: 20, color: theme.text2, cursor: 'pointer', fontSize: '0.7rem' }}>
+            {themeMode === 'auto' ? '🌓' : themeMode === 'dark' ? '🌙' : '☀️'}
+          </button>
         </div>
-        <button onClick={() => { const n = themeMode === 'dark' ? 'light' : themeMode === 'light' ? 'auto' : 'dark'; setThemeMode(n); localStorage.setItem('mgs5_theme', n); }} style={{ padding: 8, background: 'rgba(255,255,255,0.05)', border: `1px solid ${theme.border}`, borderRadius: 10, color: theme.text, cursor: 'pointer' }}>
-          {themeMode === 'auto' ? '🌓 Auto' : themeMode === 'dark' ? '🌙 Dark' : '☀️ Light'}
-        </button>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 16px', textAlign: 'right' }}>
+          <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: theme.accent }}>{totali.km > 0 ? totali.km.toLocaleString('it') : '—'}</div>
+          <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: theme.accent }}>€{totali.costo.toFixed(2)}</div>
+          <div style={{ fontSize: '0.55rem', color: theme.text2, textTransform: 'uppercase' }}>KM TOTALI</div>
+          <div style={{ fontSize: '0.55rem', color: theme.text2, textTransform: 'uppercase' }}>COSTO TOT.</div>
+          <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: theme.accent }}>{totali.kwh.toFixed(1)}</div>
+          <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: theme.accent }}>{mediaKwh100 ? mediaKwh100.toFixed(2) : '—'}</div>
+          <div style={{ fontSize: '0.55rem', color: theme.text2, textTransform: 'uppercase' }}>KWH TOTALI</div>
+          <div style={{ fontSize: '0.55rem', color: theme.text2, textTransform: 'uppercase' }}>MEDIA /100KM</div>
+        </div>
       </header>
 
       <main style={{ padding: '20px 16px' }}>

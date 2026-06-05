@@ -535,14 +535,28 @@ export default function App() {
                       {mData.ricariche.map(r => {
                         const idx = ricariche.findIndex(x => x.id === r.id);
                         return (
-                          <div key={r.id} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 10, padding: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div>
-                              <div style={{ color: theme.text }}>{r.data.slice(8, 10)}/{r.data.slice(5, 7)} {r.luogo && `• ${r.luogo}`}</div>
-                              <div style={{ fontSize: '0.65rem', color: theme.text2 }}>{r.pctPrima}% → {r.pctDopo}% | {r.kwhEff.toFixed(1)} kWh | €{r.costo.toFixed(2)}</div>
+                          <div key={r.id} style={{ padding: '14px 16px', background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <div style={{ fontFamily: 'monospace', fontSize: '0.85rem', color: theme.text2, fontWeight: 600 }}>{r.data.slice(8,10)}/{r.data.slice(5,7)}/{r.data.slice(0,4)}{r.luogo ? ' · '+r.luogo : ''}</div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <div style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: theme.text2 }}>{Math.round(r.pctPrima)}→{Math.round(r.pctDopo)}%</div>
+                                <button onClick={() => { setEditIdx(idx); setView('home'); }} style={{ background: 'none', border: 'none', color: theme.accent, cursor: 'pointer', padding: '4px 6px', fontSize: '1rem' }}>✏️</button>
+                                <button onClick={() => setConfirmIdx(idx)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px 8px', fontSize: '1.1rem', fontWeight: 700 }}>✕</button>
+                              </div>
                             </div>
-                            <div style={{ display: 'flex', gap: 10 }}>
-                              <button onClick={() => { setEditIdx(idx); setView('home'); }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.1rem' }}>✏️</button>
-                              <button onClick={() => setConfirmIdx(idx)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '1.1rem' }}>🗑</button>
+                            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+                              <div style={{ fontSize: '1.3rem', fontWeight: 700, fontFamily: 'monospace', color: theme.text }}>{(r.kwhEff||0).toFixed(2)} kWh</div>
+                              <div style={{ fontFamily: 'monospace', fontSize: '0.9rem', color: '#f59e0b' }}>{r.kwh100 ? r.kwh100.toFixed(2)+' kWh/100km' : '—'}</div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <div style={{ fontSize: '0.8rem', color: theme.text2, lineHeight: 1.6 }}>
+                                {r.prezzoKwh ? '€'+r.prezzoKwh+'/kWh' : '—'}
+                                {r.kmParziali ? '  ·  +'+r.kmParziali+' km' : ''}
+                                {r.km ? '  ·  '+r.km.toLocaleString('it')+' km tot' : ''}
+                              </div>
+                              <div style={{ textAlign: 'right' }}>
+                                <div style={{ fontFamily: 'monospace', fontSize: '1.05rem', fontWeight: 700, color: theme.green }}>€{(r.costo||0).toFixed(2)}</div>
+                              </div>
                             </div>
                           </div>
                         );

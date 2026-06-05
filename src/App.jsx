@@ -5,7 +5,7 @@ const SUPABASE_URL = "https://qvumsogedmqqrytvoajh.supabase.co";
 const SUPABASE_KEY = "sb_publishable_vxNzIfXIV6Qm1ZmMEtfk3Q_q7N-rc_z";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const SHEETS_URL = "https://script.google.com/macros/s/AKfycbw_sKWKsmcfsUUXJhMrIxJR7BhmtLFrCQBOsj6DrFocCNJATN34JdPP5lCl7FWy2xQ9/exec";
+const SHEETS_URL = "https://script.google.com/macros/s/AKfycbwE6U_h_lUBuNOOGedHxs7nAiLuP71YUcSmpbGZn1TyjusCmdmszC6Qqh7o4carU49l/exec";
 
 const MESI_NOMI = ['GENNAIO','FEBBRAIO','MARZO','APRILE','MAGGIO','GIUGNO','LUGLIO','AGOSTO','SETTEMBRE','OTTOBRE','NOVEMBRE','DICEMBRE'];
 const MESI_BREVI = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];

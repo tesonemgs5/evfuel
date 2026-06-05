@@ -39,9 +39,7 @@ const chipSt = (theme) => ({
   borderRadius: 20, color: (theme || S).accent, fontFamily: 'monospace', fontSize: '0.75rem', cursor: 'pointer'
 });
 
-const noSpinnerStyle = document.createElement('style');
-noSpinnerStyle.textContent = 'input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}';
-document.head.appendChild(noSpinnerStyle);
+
 
 function today() { return new Date().toISOString().split('T')[0]; }
 function toNum(x, def = 0) { const n = Number(x); return Number.isFinite(n) ? n : def; }
@@ -296,6 +294,13 @@ export default function App() {
   const [mesiAperti, setMesiAperti] = useState({});
   const [openSec,    setOpenSec]    = useState({ veicolo: true, preset: false, sheets: false, danger: false });
   const { toast, show: showToast }  = useToast();
+
+  useEffect(() => {
+    const s = document.createElement('style');
+    s.textContent = 'input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}';
+    document.head.appendChild(s);
+    return () => document.head.removeChild(s);
+  }, []);
 
   useEffect(() => { loadRicariche(); }, []);
   useEffect(() => { try { localStorage.setItem('mgs5_settings', JSON.stringify(settings)); } catch {} }, [settings]);

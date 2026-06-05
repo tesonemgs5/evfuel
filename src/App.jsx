@@ -395,6 +395,34 @@ export default function App() {
     }
   }
 
+  async function importaSheets() {
+    const url = localStorage.getItem('mgs5_sheetsUrl') || SHEETS_URL;
+    try {
+      showToast('⏳ Importazione...', '#f59e0b');
+      const res = await fetch(url);
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error);
+      const lista = json.ricariche.map(r => ({
+        data: r.data, luogo: (r.luogo || '').toUpperCase(), km: r.km || null,
+        kmParziali: null, pctPrima: r.pctPrima, pctDopo: r.pctDopo,
+        kwhEff: r.kwhEff, kwhTeor: settings.batteria * ((r.pctDopo - r.pctPrima) / 100),
+        prezzoKwh: r.prezzoKwh, costo: r.kwhEff * r.prezzoKwh, kwh100: null, id: null,
+      }));
+      for (const r of lista) {
+        await supabase.from('ricariche').insert({
+          data: r.data, luogo: r.luogo, km: r.km,
+          pct_prima: r.pctPrima, pct_dopo: r.pctDopo,
+          kwh_eff: r.kwhEff, kwh_teor: r.kwhTeor,
+          prezzo_kwh: r.prezzoKwh, costo: r.costo,
+        });
+      }
+      showToast(`✅ Importate ${lista.length} ricariche!`);
+      await loadRicariche();
+    } catch (e) {
+      showToast('❌ Errore import: ' + (e.message || ''), '#ef4444');
+    }
+  }
+
   const isDark = themeMode === 'auto' ? window.matchMedia('(prefers-color-scheme: dark)').matches : themeMode === 'dark';
   const theme = isDark ? THEMES.dark : THEMES.light;
 
@@ -610,6 +638,9 @@ export default function App() {
                   </div>
                   <button onClick={esportaSheets} style={{ padding: 10, background: 'rgba(16,185,129,0.1)', border: '1px solid #10b981', color: '#10b981', borderRadius: 10, cursor: 'pointer', fontWeight: 700 }}>
                     ☁️ Esporta su Sheets
+                  </button>
+                  <button onClick={importaSheets} style={{ padding: 10, background: 'rgba(0,229,255,0.1)', border: `1px solid ${theme.accent}`, color: theme.accent, borderRadius: 10, cursor: 'pointer', fontWeight: 700 }}>
+                    📥 Importa da Sheets
                   </button>
                 </div>
               )}

@@ -589,19 +589,21 @@ export default function App() {
         )}
 
         {view === 'dati' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ fontSize: '0.65rem', color: theme.text2, textTransform: 'uppercase', marginBottom: 4 }}>Tutte le ricariche ({ricariche.length})</div>
-            {ricariche.slice().reverse().map((r, i) => {
-              const idx = ricariche.findIndex(x => x.id === r.id);
-              return (
-                <div key={r.id} style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 12, padding: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ fontFamily: 'monospace', fontSize: '0.85rem', color: theme.text }}>{r.data} {r.luogo && <span style={{ color: theme.accent }}>• {r.luogo}</span>}</div>
-                    <div style={{ fontSize: '0.65rem', color: theme.text2 }}>{r.pctPrima}%→{r.pctDopo}% | {r.kwhEff.toFixed(1)}kWh | €{r.costo.toFixed(2)}{r.kwh100 ? ` | ${r.kwh100.toFixed(1)}kWh/100` : ''}</div>
-                  </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button onClick={() => { setEditIdx(idx); setView('home'); }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1rem' }}>✏️</button>
-                    <button onClick={() => setConfirmIdx(idx)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1rem' }}>🗑</button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 16, padding: 16 }}>
+              <div style={{ fontSize: '0.65rem', color: theme.text2, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>Archivio Dati</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <button onClick={()=>{ const inp=document.createElement('input'); inp.type='file'; inp.accept='.csv'; inp.onchange=importaCSV; inp.click(); }} style={{ padding:'16px 0', background:'rgba(0,229,255,0.1)', border:`1px solid rgba(0,229,255,0.3)`, borderRadius:14, color:theme.accent, fontSize:'0.8rem', fontWeight:800, textTransform:'uppercase', cursor:'pointer' }}>📊 Importa CSV</button>
+                <button onClick={esportaCSV} style={{ padding:'16px 0', background:'rgba(0,229,255,0.1)', border:`1px solid rgba(0,229,255,0.3)`, borderRadius:14, color:theme.accent, fontSize:'0.8rem', fontWeight:800, textTransform:'uppercase', cursor:'pointer' }}>📊 Esporta CSV</button>
+                <button onClick={()=>{ const inp=document.createElement('input'); inp.type='file'; inp.accept='.json,application/json'; inp.onchange=importaJSON; inp.click(); }} style={{ padding:'16px 0', background:'rgba(124,58,237,0.1)', border:'1px solid rgba(124,58,237,0.35)', borderRadius:14, color:'#a78bfa', fontSize:'0.8rem', fontWeight:800, textTransform:'uppercase', cursor:'pointer' }}>📂 Importa JSON</button>
+                <button onClick={esportaJSON} style={{ padding:'16px 0', background:'rgba(124,58,237,0.1)', border:'1px solid rgba(124,58,237,0.35)', borderRadius:14, color:'#a78bfa', fontSize:'0.8rem', fontWeight:800, textTransform:'uppercase', cursor:'pointer' }}>💾 Esporta JSON</button>
+                <button onClick={importaSheets} style={{ padding:'16px 0', background:'rgba(16,185,129,0.1)', border:'1px solid rgba(16,185,129,0.35)', borderRadius:14, color:'#10b981', fontSize:'0.8rem', fontWeight:800, textTransform:'uppercase', cursor:'pointer' }}>📥 Importa Sheets</button>
+                <button onClick={esportaSheets} style={{ padding:'16px 0', background:'rgba(245,158,11,0.1)', border:'1px solid rgba(245,158,11,0.35)', borderRadius:14, color:'#f59e0b', fontSize:'0.8rem', fontWeight:800, textTransform:'uppercase', cursor:'pointer' }}>📤 Esporta Sheets</button>
+              </div>
+              <div style={{ fontSize: '0.65rem', color: theme.text2, marginTop: 10, lineHeight: 1.6 }}>⚠️ Importa sovrascrive tutti i dati esistenti</div>
+            </div>
+            <div style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 16, padding: 16 }}>
+              <div style={{ fontSize: '0.65rem', color: theme.text2, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>Riepilogo Mensile</div> fontSize: '1rem' }}>🗑</button>
                   </div>
                 </div>
               );

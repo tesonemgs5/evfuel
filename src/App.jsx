@@ -603,7 +603,7 @@ export default function App() {
               <div style={{ fontSize: '0.65rem', color: theme.text2, marginTop: 10, lineHeight: 1.6 }}>⚠️ Importa sovrascrive tutti i dati esistenti</div>
             </div>
             <div style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 16, padding: 16 }}>
-              <div style={{ fontSize: '0.65rem', color: theme.text2, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>Riepilogo Mensile</div> fontSize: '1rem' }}>🗑</button>
+              <div style={{ fontSize: '0.65rem', color: theme.text2, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>Riepilogo Mensile</div> <div style={{ fontSize: '0.65rem', color: theme.text2, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>Riepilogo Mensile</div> fontSize: '1rem' }}>🗑</button>
                   </div>
                 </div>
               );

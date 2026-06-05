@@ -459,6 +459,7 @@ export default function App() {
       <header style={{ position: 'sticky', top: 0, zIndex: 100, background: theme.headerBg, backdropFilter: 'blur(12px)', borderBottom: `1px solid ${theme.border}`, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ fontSize: '1.4rem', fontWeight: 900 }}>MG<span style={{ color: '#ef4444' }}>S5</span></div>
+          <a href={localStorage.getItem('mgs5_sheetsUrl') || SHEETS_URL} target="_blank" rel="noreferrer" style={{ display:'flex', alignItems:'center', padding:'3px 9px', background:'rgba(0,229,255,0.08)', border:'1px solid rgba(0,229,255,0.25)', borderRadius:20, color:theme.accent, fontSize:'0.75rem', fontWeight:700, textDecoration:'none' }}>📊</a>
           <button onClick={() => { const n = themeMode === 'dark' ? 'light' : themeMode === 'light' ? 'auto' : 'dark'; setThemeMode(n); localStorage.setItem('mgs5_theme', n); }} style={{ padding: '4px 8px', background: 'rgba(255,255,255,0.05)', border: `1px solid ${theme.border}`, borderRadius: 20, color: theme.text2, cursor: 'pointer', fontSize: '0.7rem' }}>
             {themeMode === 'auto' ? '🌓' : themeMode === 'dark' ? '🌙' : '☀️'}
           </button>

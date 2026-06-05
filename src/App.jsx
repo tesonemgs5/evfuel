@@ -388,7 +388,7 @@ export default function App() {
   async function esportaSheets() {
     const url = localStorage.getItem('mgs5_sheetsUrl') || SHEETS_URL;
     try {
-      await fetch(url, { method: 'POST', body: JSON.stringify({ ricariche, settings }) });
+      await fetch(url, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ ricariche, settings }) });
       showToast('☁️ Esportato su Sheets!');
     } catch (e) {
       showToast('❌ Errore Sheets', '#ef4444');

@@ -537,19 +537,19 @@ export default function App() {
                         return (
                           <div key={r.id} style={{ padding: '14px 16px', background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: 8 }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                              <div style={{ fontFamily: 'monospace', fontSize: '0.85rem', color: theme.text2, fontWeight: 600 }}>{r.data.slice(8,10)}/{r.data.slice(5,7)}/{r.data.slice(0,4)}{r.luogo ? ' · '+r.luogo : ''}</div>
+                              <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', color: theme.text2, fontWeight: 600 }}>{r.data.slice(8,10)}/{r.data.slice(5,7)}/{r.data.slice(0,4)}{r.luogo ? ' · '+r.luogo : ''}</div>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <div style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: theme.text2 }}>{Math.round(r.pctPrima > 1 ? r.pctPrima : r.pctPrima * 100)}→{Math.round(r.pctDopo > 1 ? r.pctDopo : r.pctDopo * 100)}%</div>
+                                <div style={{ fontFamily: 'monospace', fontSize: '0.9rem', color: theme.text2 }}>{Math.round(r.pctPrima > 1 ? r.pctPrima : r.pctPrima * 100)}→{Math.round(r.pctDopo > 1 ? r.pctDopo : r.pctDopo * 100)}%</div>
                                 <button onClick={() => { setEditIdx(idx); setView('home'); }} style={{ background: 'none', border: 'none', color: theme.accent, cursor: 'pointer', padding: '4px 6px', fontSize: '1rem' }}>✏️</button>
                                 <button onClick={() => setConfirmIdx(idx)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px 8px', fontSize: '1.1rem', fontWeight: 700 }}>✕</button>
                               </div>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
                               <div style={{ fontSize: '1.3rem', fontWeight: 700, fontFamily: 'monospace', color: theme.text }}>{(r.kwhEff||0).toFixed(2)} kWh</div>
-                              <div style={{ fontFamily: 'monospace', fontSize: '0.9rem', color: '#f59e0b' }}>{r.kwh100 ? r.kwh100.toFixed(2)+' kWh/100km' : '—'}</div>
+                              <div style={{ fontFamily: 'monospace', fontSize: '1rem', color: '#f59e0b' }}>{r.kwh100 ? r.kwh100.toFixed(2)+' kWh/100km' : '—'}</div>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                              <div style={{ fontSize: '0.8rem', color: theme.text2, lineHeight: 1.6 }}>
+                              <div style={{ fontSize: '0.9rem', color: theme.text2, lineHeight: 1.6 }}>
                                 {r.prezzoKwh ? '€'+r.prezzoKwh+'/kWh' : '—'}
                                 {r.kmParziali ? '  ·  +'+r.kmParziali+' km' : ''}
                                 {r.km ? '  ·  '+r.km.toLocaleString('it')+' km tot' : ''}

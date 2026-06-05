@@ -670,11 +670,15 @@ export default function App() {
           { id: 'grafici',  l: 'GRAFICI',  i: '📊' },
           { id: 'dati',     l: 'DATI',     i: '📋' },
           { id: 'settings', l: 'CONFIG',   i: '⚙️' }
-        ].map(t => (
-          <button key={t.id} onClick={() => { setView(t.id); setEditIdx(null); }} style={{ flex: 1, background: 'transparent', border: 'none', color: view === t.id ? theme.accent : theme.text2, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+        ].map(t => {
+          const active = view === t.id;
+          return (
+          <button key={t.id} onClick={() => { setView(t.id); setEditIdx(null); }} style={{ flex: 1, background: active ? 'rgba(0,229,255,0.1)' : 'transparent', border: 'none', borderTop: active ? `2px solid ${theme.accent}` : '2px solid transparent', color: active ? theme.accent : theme.text2, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: '8px 0', transition: 'all 0.2s' }}>
             <span style={{ fontSize: '1.1rem' }}>{t.i}</span>
-            <span style={{ fontSize: '0.55rem', letterSpacing: '0.05em' }}>{t.l}</span>
+            <span style={{ fontSize: '0.55rem', letterSpacing: '0.05em', fontWeight: active ? 800 : 400 }}>{t.l}</span>
           </button>
+          );
+        })
         ))}
       </nav>
     </div>

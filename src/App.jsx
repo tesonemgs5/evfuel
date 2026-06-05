@@ -441,7 +441,7 @@ export default function App() {
     const mKey = r.data.slice(0, 7);
     if (!raggruppatoPerMese[mKey]) raggruppatoPerMese[mKey] = { ricariche: [], kwhTotali: 0, costoTotale: 0, kmTotali: 0 };
     raggruppatoPerMese[mKey].ricariche.push(r);
-    raggruppatoPerMese[mKey].kwhTotali   += Number(r.kwhEff) || 0;
+    raggruppatoPerMese[mKey].ricariche.sort((a,b) => (b.km||0) - (a.km||0));    raggruppatoPerMese[mKey].kwhTotali   += Number(r.kwhEff) || 0;
     raggruppatoPerMese[mKey].costoTotale += Number(r.costo) || 0;
     raggruppatoPerMese[mKey].kmTotali    += Number(r.kmParziali) || 0;
   });
@@ -539,7 +539,7 @@ export default function App() {
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                               <div style={{ fontFamily: 'monospace', fontSize: '0.85rem', color: theme.text2, fontWeight: 600 }}>{r.data.slice(8,10)}/{r.data.slice(5,7)}/{r.data.slice(0,4)}{r.luogo ? ' · '+r.luogo : ''}</div>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <div style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: theme.text2 }}>{Math.round(r.pctPrima)}→{Math.round(r.pctDopo)}%</div>
+                                <div style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: theme.text2 }}>{Math.round(r.pctPrima > 1 ? r.pctPrima : r.pctPrima * 100)}→{Math.round(r.pctDopo > 1 ? r.pctDopo : r.pctDopo * 100)}%</div>
                                 <button onClick={() => { setEditIdx(idx); setView('home'); }} style={{ background: 'none', border: 'none', color: theme.accent, cursor: 'pointer', padding: '4px 6px', fontSize: '1rem' }}>✏️</button>
                                 <button onClick={() => setConfirmIdx(idx)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px 8px', fontSize: '1.1rem', fontWeight: 700 }}>✕</button>
                               </div>

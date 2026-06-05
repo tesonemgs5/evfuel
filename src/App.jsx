@@ -479,22 +479,8 @@ export default function App() {
       <main style={{ padding: '20px 16px' }}>
         {view === 'home' && (
           <>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-              <div style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 16, padding: 14 }}>
-                <div style={{ fontSize: '0.62rem', color: theme.text2, textTransform: 'uppercase' }}>Spesa Totale</div>
-                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: theme.green, fontFamily: 'monospace' }}>€ {totali.costo.toFixed(2)}</div>
-              </div>
-              <div style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 16, padding: 14 }}>
-                <div style={{ fontSize: '0.62rem', color: theme.text2, textTransform: 'uppercase' }}>Media Consumo</div>
-                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: theme.text, fontFamily: 'monospace' }}>{mediaKwh100 ? mediaKwh100.toFixed(2) : '—'}</div>
-                <div style={{ fontSize: '0.55rem', color: theme.text2 }}>kWh / 100km</div>
-              </div>
-            </div>
-
-            {editIdx !== null ? (
+            {editIdx !== null && (
               <FormRicarica settings={settings} ricariche={ricariche} editIdx={editIdx} onSave={salvaRicarica} onCancel={() => setEditIdx(null)} showToast={showToast} theme={theme} />
-            ) : (
-              <button onClick={() => setView('nuovo')} style={{ width: '100%', padding: 16, background: `linear-gradient(135deg,${theme.accent},${theme.accent2})`, border: 'none', borderRadius: 16, color: '#fff', fontWeight: 800, cursor: 'pointer', marginBottom: 16, fontSize: '1rem' }}>⚡ Nuova Ricarica</button>
             )}
 
             {loading && <div style={{ textAlign: 'center', color: theme.text2, padding: 20 }}>Caricamento...</div>}

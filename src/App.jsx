@@ -575,7 +575,7 @@ export default function App() {
                   {aperto && (
                     <div style={{ padding: 8, background: 'rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', gap: 6 }}>
                       {[...mData.ricariche].sort((a, b) => (b.km || 0) - (a.km || 0)).map(r => {
-                        const idx = ricariche.findIndex(x => x.id === r.id);
+                        const idx = ricariche.findIndex(x => x.id !== null ? x.id === r.id : x.data === r.data && x.kwhEff === r.kwhEff);
                         return (
                           <div key={r.id} style={{ padding: '14px 16px', background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: 8 }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

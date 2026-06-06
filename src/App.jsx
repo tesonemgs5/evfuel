@@ -313,7 +313,7 @@ export default function App() {
         .select('*')
         .order('data', { ascending: true });
       if (error) throw error;
-      const lista = (data || []).map(sanitizzaRicarica).sort((a, b) => (b.km || 0) - (a.km || 0));
+      const lista = (data || []).map(sanitizzaRicarica).sort((a, b) => (a.km || 0) - (b.km || 0));
       setRicariche(ricalcolaKmParziali(lista));
       localStorage.setItem('mgs5_ricariche', JSON.stringify(lista));
     } catch (e) {
@@ -574,7 +574,7 @@ export default function App() {
                   </div>
                   {aperto && (
                     <div style={{ padding: 8, background: 'rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {mData.ricariche.map(r => {
+                      {[...mData.ricariche].sort((a, b) => (b.km || 0) - (a.km || 0)).map(r => {
                         const idx = ricariche.findIndex(x => x.id === r.id);
                         return (
                           <div key={r.id} style={{ padding: '14px 16px', background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: 8 }}>

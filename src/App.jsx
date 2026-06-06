@@ -385,6 +385,59 @@ export default function App() {
     setConfirmIdx(null);
   }
 
+  function esportaCSV() {
+    const header = 'data,luogo,km,km_parziali,pct_prima,pct_dopo,kwh_eff,kwh_teor,prezzo_kwh,costo,kwh_100';
+    const righe = ricariche.map(r => [r.data,r.luogo,r.km,r.kmParziali,r.pctPrima,r.pctDopo,r.kwhEff,r.kwhTeor,r.prezzoKwh,r.costo,r.kwh100].join(','));
+    const blob = new Blob([header + '\n' + righe.join('\n')], { type: 'text/csv' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'ricariche.csv'; a.click();
+    showToast('📊 CSV esportato!');
+  }
+
+  function importaCSV(e) {
+    const file = e.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try {
+        const lines = ev.target.result.trim().split('\n');
+        const keys = lines[0].split(',');
+        const lista = lines.slice(1).map(l => {
+          const vals = l.split(',');
+          const obj = {};
+          keys.forEach((k, i) => obj[k] = vals[i]);
+          return sanitizzaRicarica(obj);
+        });
+        for (const r of lista) {
+          await supabase.from('ricariche').insert({ data:r.data, luogo:r.luogo, km:r.km, km_parziali:r.kmParziali, pct_prima:r.pctPrima, pct_dopo:r.pctDopo, kwh_eff:r.kwhEff, kwh_teor:r.kwhTeor, prezzo_kwh:r.prezzoKwh, costo:r.costo, kwh_100:r.kwh100 });
+        }
+        showToast(`✅ Importate ${lista.length} ricariche!`);
+        await loadRicariche();
+      } catch (err) { showToast('❌ Errore CSV: ' + err.message, '#ef4444'); }
+    };
+    reader.readAsText(file);
+  }
+
+  function esportaJSON() {
+    const blob = new Blob([JSON.stringify(ricariche, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'ricariche.json'; a.click();
+    showToast('💾 JSON esportato!');
+  }
+
+  function importaJSON(e) {
+    const file = e.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try {
+        const lista = JSON.parse(ev.target.result).map(sanitizzaRicarica);
+        for (const r of lista) {
+          await supabase.from('ricariche').insert({ data:r.data, luogo:r.luogo, km:r.km, km_parziali:r.kmParziali, pct_prima:r.pctPrima, pct_dopo:r.pctDopo, kwh_eff:r.kwhEff, kwh_teor:r.kwhTeor, prezzo_kwh:r.prezzoKwh, costo:r.costo, kwh_100:r.kwh100 });
+        }
+        showToast(`✅ Importate ${lista.length} ricariche!`);
+        await loadRicariche();
+      } catch (err) { showToast('❌ Errore JSON: ' + err.message, '#ef4444'); }
+    };
+    reader.readAsText(file);
+  }
+
   async function esportaSheets() {
     const url = localStorage.getItem('mgs5_sheetsUrl') || SHEETS_URL;
     try {

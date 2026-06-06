@@ -582,7 +582,7 @@ export default function App() {
                               <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', color: theme.text2, fontWeight: 600 }}>{r.data.slice(8,10)}/{r.data.slice(5,7)}/{r.data.slice(0,4)}{r.luogo ? ' · '+r.luogo : ''}</div>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                 <div style={{ fontFamily: 'monospace', fontSize: '0.9rem', color: theme.text2 }}>{Math.round(r.pctPrima > 1 ? r.pctPrima : r.pctPrima * 100)}→{Math.round(r.pctDopo > 1 ? r.pctDopo : r.pctDopo * 100)}%</div>
-                                <button onClick={() => { setEditIdx(idx); setView('home'); }} style={{ background: 'none', border: 'none', color: theme.accent, cursor: 'pointer', padding: '4px 6px', fontSize: '1rem' }}>✏️</button>
+                                <button onClick={() => { setEditIdx(idx); setView('home'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} style={{ background: 'none', border: 'none', color: theme.accent, cursor: 'pointer', padding: '4px 6px', fontSize: '1rem' }}>✏️</button>
                                 <button onClick={() => setConfirmIdx(idx)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px 8px', fontSize: '1.1rem', fontWeight: 700 }}>✕</button>
                               </div>
                             </div>

@@ -302,8 +302,7 @@ export default function App() {
     return () => document.head.removeChild(s);
   }, []);
 
-  useEffect(() => { importaSheets(); }, []);
-  useEffect(() => { try { localStorage.setItem('mgs5_settings', JSON.stringify(settings)); } catch {} }, [settings]);
+  useEffect(() => { loadRicariche(); }, []);
 
   async function loadRicariche() {
     setLoading(true);
@@ -319,14 +318,18 @@ export default function App() {
       localStorage.setItem('mgs5_ricariche', JSON.stringify(listaCalcolata));
       return listaCalcolata;
     } catch (e) {
-      // fallback a localStorage se Supabase non risponde
       try {
         const local = localStorage.getItem('mgs5_ricariche');
         if (local) setRicariche(ricalcolaKmParziali(JSON.parse(local)));
       } catch {}
       showToast('⚠️ Usando dati locali', '#f59e0b');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
+  }
+
+  function salvaSettings() {
+    try { localStorage.setItem('mgs5_settings', JSON.stringify(settings)); showToast('✅ Impostazioni salvate!'); } catch {}
   }
 
   async function salvaRicarica(record) {
@@ -518,7 +521,7 @@ export default function App() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ fontSize: '1.4rem', fontWeight: 900 }}><span style={{ color: theme.text }}>{settings.targa}</span></div>
           <a href="https://docs.google.com/spreadsheets/d/1egavj34-1EM3lY91kSikV48G7zxrnM7tOKdJ5GqPhY4/edit?gid=433900317#gid=433900317" target="_blank" rel="noreferrer" style={{ display:'flex', alignItems:'center', padding:'3px 9px', background:'rgba(0,229,255,0.08)', border:'1px solid rgba(0,229,255,0.25)', borderRadius:20, color:theme.accent, fontSize:'0.75rem', fontWeight:700, textDecoration:'none' }}>📊</a>
-          <button onClick={() => loadRicariche()} style={{ padding: '4px 8px', background: 'rgba(0,229,255,0.08)', border: `1px solid rgba(0,229,255,0.25)`, borderRadius: 20, color: theme.accent, cursor: 'pointer', fontSize: '0.7rem' }}>🔄</button>
+          
           <button onClick={() => { const n = themeMode === 'dark' ? 'light' : themeMode === 'light' ? 'auto' : 'dark'; setThemeMode(n); localStorage.setItem('mgs5_theme', n); }} style={{ padding: '4px 8px', background: 'rgba(255,255,255,0.05)', border: `1px solid ${theme.border}`, borderRadius: 20, color: theme.text2, cursor: 'pointer', fontSize: '0.7rem' }}>
             {themeMode === 'auto' ? '🌓' : themeMode === 'dark' ? '🌙' : '☀️'}
           </button>
@@ -755,6 +758,14 @@ export default function App() {
                 </div>
               )}
             </div>
+
+            <button onClick={salvaSettings} style={{ width: '100%', padding: 14, background: `linear-gradient(135deg,${theme.accent},${theme.accent2})`, border: 'none', borderRadius: 16, color: '#fff', cursor: 'pointer', fontWeight: 800, fontSize: '0.9rem' }}>
+              💾 Salva Impostazioni
+            </button>
+
+            <button onClick={() => loadRicariche()} style={{ width: '100%', padding: 14, background: 'rgba(0,229,255,0.08)', border: `1px solid rgba(0,229,255,0.25)`, borderRadius: 16, color: theme.accent, cursor: 'pointer', fontWeight: 700, fontSize: '0.9rem' }}>
+              🔄 Aggiorna dati
+            </button>
 
           </div>
         )}

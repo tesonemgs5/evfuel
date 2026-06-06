@@ -668,8 +668,8 @@ export default function App() {
                       <div style={{ fontSize: '0.75rem', color: theme.text2, marginTop: 2 }}>{mData.ricariche.length} ric · {kmMese > 0 ? kmMese.toLocaleString('it') + ' km' : '— km'}</div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontFamily: 'monospace', fontSize: '0.85rem', fontWeight: 700, color: theme.accent }}>{mData.kwhTotali.toFixed(1)} kWh · <span style={{ color: theme.green }}>€{mData.costoTotale.toFixed(2)}</span></div>
-                      {mediaKwhMese && <div style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: theme.accent2 }}>{mediaKwhMese.toFixed(2)} kWh/100km</div>}
+                      <div style={{ fontFamily: 'monospace', fontSize: '0.85rem', fontWeight: 700, color: theme.accent }}>{mData.kwhTotali.toFixed(1)} kWh · <span style={{ color: '#34d399' }}>€{mData.costoTotale.toFixed(2)}</span></div>
+                      {mediaKwhMese && <div style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: '#a78bfa' }}>{mediaKwhMese.toFixed(2)} kWh/100km</div>}
                     </div>
                   </div>
                 );

@@ -302,7 +302,7 @@ export default function App() {
     return () => document.head.removeChild(s);
   }, []);
 
-  useEffect(() => { loadRicariche(); }, []);
+  useEffect(() => { importaSheets(); }, []);
   useEffect(() => { try { localStorage.setItem('mgs5_settings', JSON.stringify(settings)); } catch {} }, [settings]);
 
   async function loadRicariche() {
@@ -313,9 +313,8 @@ export default function App() {
         .select('*')
         .order('data', { ascending: true });
       if (error) throw error;
-      const lista = (data || []).map(sanitizzaRicarica);
+      const lista = (data || []).map(sanitizzaRicarica).sort((a, b) => (b.km || 0) - (a.km || 0));
       setRicariche(ricalcolaKmParziali(lista));
-      // salva anche in localStorage come backup
       localStorage.setItem('mgs5_ricariche', JSON.stringify(lista));
     } catch (e) {
       // fallback a localStorage se Supabase non risponde
@@ -353,6 +352,7 @@ export default function App() {
       }
       showToast(record.id ? '✅ Aggiornata!' : '✅ Salvata!');
       await loadRicariche();
+      await esportaSheets();
     } catch (e) {
       showToast('❌ Errore salvataggio: ' + (e.message || ''), '#ef4444');
     }

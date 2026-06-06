@@ -603,11 +603,17 @@ export default function App() {
               <div style={{ fontSize: '0.65rem', color: theme.text2, marginTop: 10, lineHeight: 1.6 }}>⚠️ Importa sovrascrive tutti i dati esistenti</div>
             </div>
             <div style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 16, padding: 16 }}>
-              <div style={{ fontSize: '0.65rem', color: theme.text2, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>Riepilogo Mensile</div> <div style={{ fontSize: '0.65rem', color: theme.text2, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>Riepilogo Mensile</div> fontSize: '1rem' }}>🗑</button>
+              <div style={{ fontSize: '0.65rem', color: theme.text2, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>Riepilogo Mensile</div>
+              {Object.keys(raggruppatoPerMese).sort((a,b) => b.localeCompare(a)).map(mKey => {
+                const mData = raggruppatoPerMese[mKey];
+                return (
+                  <div key={mKey} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: `1px solid ${theme.border}` }}>
+                    <div style={{ fontSize: '0.8rem', color: theme.text }}>{MESI_NOMI[parseInt(mKey.split('-')[1])-1]} {mKey.split('-')[0]}</div>
+                    <div style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: theme.accent }}>€{mData.costoTotale.toFixed(2)} · {mData.kwhTotali.toFixed(1)} kWh</div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         )}
 
@@ -702,8 +708,7 @@ export default function App() {
             <span style={{ fontSize: '0.55rem', letterSpacing: '0.05em', fontWeight: active ? 800 : 400 }}>{t.l}</span>
           </button>
           );
-        })
-       })}
+        })}
       </nav>
     </div>
   );

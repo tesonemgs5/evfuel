@@ -518,6 +518,7 @@ export default function App() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ fontSize: '1.4rem', fontWeight: 900 }}><span style={{ color: theme.text }}>{settings.targa}</span></div>
           <a href="https://docs.google.com/spreadsheets/d/1egavj34-1EM3lY91kSikV48G7zxrnM7tOKdJ5GqPhY4/edit?gid=433900317#gid=433900317" target="_blank" rel="noreferrer" style={{ display:'flex', alignItems:'center', padding:'3px 9px', background:'rgba(0,229,255,0.08)', border:'1px solid rgba(0,229,255,0.25)', borderRadius:20, color:theme.accent, fontSize:'0.75rem', fontWeight:700, textDecoration:'none' }}>📊</a>
+          <button onClick={() => loadRicariche()} style={{ padding: '4px 8px', background: 'rgba(0,229,255,0.08)', border: `1px solid rgba(0,229,255,0.25)`, borderRadius: 20, color: theme.accent, cursor: 'pointer', fontSize: '0.7rem' }}>🔄</button>
           <button onClick={() => { const n = themeMode === 'dark' ? 'light' : themeMode === 'light' ? 'auto' : 'dark'; setThemeMode(n); localStorage.setItem('mgs5_theme', n); }} style={{ padding: '4px 8px', background: 'rgba(255,255,255,0.05)', border: `1px solid ${theme.border}`, borderRadius: 20, color: theme.text2, cursor: 'pointer', fontSize: '0.7rem' }}>
             {themeMode === 'auto' ? '🌓' : themeMode === 'dark' ? '🌙' : '☀️'}
           </button>

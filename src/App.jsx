@@ -461,6 +461,8 @@ export default function App() {
         kwhEff: r.kwhEff, kwhTeor: settings.batteria * ((r.pctDopo - r.pctPrima) / 100),
         prezzoKwh: r.prezzoKwh, costo: r.kwhEff * r.prezzoKwh, kwh100: null, id: null,
       }));
+      const { error: delError } = await supabase.from('ricariche').delete().neq('id', 0);
+      if (delError) throw delError;
       for (const r of lista) {
         await supabase.from('ricariche').insert({
           data: r.data, luogo: r.luogo, km: r.km,

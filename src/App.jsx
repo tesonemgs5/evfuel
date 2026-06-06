@@ -314,8 +314,10 @@ export default function App() {
         .order('data', { ascending: true });
       if (error) throw error;
       const lista = (data || []).map(sanitizzaRicarica).sort((a, b) => (a.km || 0) - (b.km || 0));
-      setRicariche(ricalcolaKmParziali(lista));
-      localStorage.setItem('mgs5_ricariche', JSON.stringify(lista));
+      const listaCalcolata = ricalcolaKmParziali(lista);
+      setRicariche(listaCalcolata);
+      localStorage.setItem('mgs5_ricariche', JSON.stringify(listaCalcolata));
+      return listaCalcolata;
     } catch (e) {
       // fallback a localStorage se Supabase non risponde
       try {
@@ -351,8 +353,8 @@ export default function App() {
         if (error) throw error;
       }
       showToast(record.id ? '✅ Aggiornata!' : '✅ Salvata!');
-      await loadRicariche();
-      await esportaSheets();
+      const listaAggiornata = await loadRicariche();
+      await esportaSheets(listaAggiornata);
     } catch (e) {
       showToast('❌ Errore salvataggio: ' + (e.message || ''), '#ef4444');
     }
@@ -438,11 +440,12 @@ export default function App() {
     reader.readAsText(file);
   }
 
-  async function esportaSheets() {
+  async function esportaSheets(listaOverride) {
     const url = localStorage.getItem('mgs5_sheetsUrl') || SHEETS_URL;
     try {
-      await fetch(url, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ ricariche, settings }) });
-      showToast('☁️ Esportato su Sheets!');
+      const dati = listaOverride || ricariche;
+      await fetch(url, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ ricariche: dati, settings }) });
+      showToast('☁️ Sheets aggiornato!');
     } catch (e) {
       showToast('❌ Errore Sheets', '#ef4444');
     }

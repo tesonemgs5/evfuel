@@ -659,10 +659,19 @@ export default function App() {
               <div style={{ fontSize: '0.65rem', color: theme.text2, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>Riepilogo Mensile</div>
               {Object.keys(raggruppatoPerMese).sort((a,b) => b.localeCompare(a)).map(mKey => {
                 const mData = raggruppatoPerMese[mKey];
+                const kmMese = mData.kmTotali || 0;
+                const mediaKwhMese = kmMese > 0 ? (mData.kwhTotali / kmMese) * 100 : null;
                 return (
-                  <div key={mKey} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: `1px solid ${theme.border}` }}>
-                    <div style={{ fontSize: '0.8rem', color: theme.text }}>{MESI_NOMI[parseInt(mKey.split('-')[1])-1]} {mKey.split('-')[0]}</div>
-                    <div style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: theme.accent }}>€{mData.costoTotale.toFixed(2)} · {mData.kwhTotali.toFixed(1)} kWh</div>
+                  <div key={mKey} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: `1px solid ${theme.border}` }}>
+                    <div>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 700, color: theme.text }}>{MESI_NOMI[parseInt(mKey.split('-')[1])-1]} {mKey.split('-')[0]}</div>
+                      <div style={{ fontSize: '0.75rem', color: theme.text2, marginTop: 2 }}>{mData.ricariche.length} ric · {kmMese > 0 ? kmMese.toLocaleString('it') + ' km' : '— km'}</div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontFamily: 'monospace', fontSize: '0.85rem', fontWeight: 700, color: theme.accent }}>{mData.kwhTotali.toFixed(1)} kWh</div>
+                      <div style={{ fontFamily: 'monospace', fontSize: '0.85rem', fontWeight: 700, color: theme.green }}>€{mData.costoTotale.toFixed(2)}</div>
+                      {mediaKwhMese && <div style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: theme.accent2 }}>{mediaKwhMese.toFixed(2)} kWh/100km</div>}
+                    </div>
                   </div>
                 );
               })}

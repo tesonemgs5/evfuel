@@ -294,6 +294,17 @@ export default function App() {
   const [mesiAperti, setMesiAperti] = useState({});
   const [openSec,    setOpenSec]    = useState({ veicolo: true, preset: false, sheets: false, danger: false });
   const { toast, show: showToast }  = useToast();
+  const [supabaseOffline, setSupabaseOffline] = useState(() => localStorage.getItem('mgs5_supabase_offline') === '1');
+
+  function segnalaSupabaseOffline() {
+    localStorage.setItem('mgs5_supabase_offline', '1');
+    setSupabaseOffline(true);
+  }
+  function riattivaSupabase() {
+    localStorage.removeItem('mgs5_supabase_offline');
+    setSupabaseOffline(false);
+    showToast('✅ Sync riattivato', '#10b981');
+  }
 
   useEffect(() => {
     const s = document.createElement('style');
@@ -323,6 +334,7 @@ export default function App() {
         if (local) setRicariche(ricalcolaKmParziali(JSON.parse(local)));
       } catch {}
       showToast('⚠️ Usando dati locali', '#f59e0b');
+      segnalaSupabaseOffline();
     } finally {
       setLoading(false);
     }
@@ -360,6 +372,7 @@ export default function App() {
       await esportaSheets(listaAggiornata);
     } catch (e) {
       showToast('❌ Errore salvataggio: ' + (e.message || ''), '#ef4444');
+      segnalaSupabaseOffline();
     }
     setEditIdx(null);
     setView('home');
@@ -386,6 +399,7 @@ export default function App() {
       }
     } catch (e) {
       showToast('❌ Errore cancellazione', '#ef4444');
+      segnalaSupabaseOffline();
     }
     setConfirmIdx(null);
   }
@@ -416,7 +430,7 @@ export default function App() {
         }
         showToast(`✅ Importate ${lista.length} ricariche!`);
         await loadRicariche();
-      } catch (err) { showToast('❌ Errore CSV: ' + err.message, '#ef4444'); }
+      } catch (err) { showToast('❌ Errore CSV: ' + err.message, '#ef4444'); segnalaSupabaseOffline(); }
     };
     reader.readAsText(file);
   }
@@ -438,7 +452,7 @@ export default function App() {
         }
         showToast(`✅ Importate ${lista.length} ricariche!`);
         await loadRicariche();
-      } catch (err) { showToast('❌ Errore JSON: ' + err.message, '#ef4444'); }
+      } catch (err) { showToast('❌ Errore JSON: ' + err.message, '#ef4444'); segnalaSupabaseOffline(); }
     };
     reader.readAsText(file);
   }
@@ -481,6 +495,7 @@ export default function App() {
       await loadRicariche();
     } catch (e) {
       showToast('❌ Errore import: ' + (e.message || ''), '#ef4444');
+      segnalaSupabaseOffline();
     }
   }
 
@@ -517,24 +532,37 @@ export default function App() {
       {toast && <div style={{ position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 500, padding: '12px 24px', background: toast.color, color: '#fff', borderRadius: 30, fontWeight: 700, whiteSpace: 'nowrap' }}>{toast.msg}</div>}
       {confirmIdx !== null && <ConfirmDialog messaggio={confirmIdx === 'all' ? 'Vuoi cancellare tutto?' : 'Cancellare la ricarica?'} onConfirm={() => cancellaRicarica(confirmIdx)} onCancel={() => setConfirmIdx(null)} theme={theme} />}
 
-      <header style={{ position: 'sticky', top: 0, zIndex: 100, background: theme.headerBg, backdropFilter: 'blur(12px)', borderBottom: `1px solid ${theme.border}`, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <header style={{
+        position: 'sticky', top: 0, zIndex: 100,
+        background: supabaseOffline ? 'rgba(239,68,68,0.92)' : theme.headerBg,
+        backdropFilter: 'blur(12px)',
+        borderBottom: supabaseOffline ? '1px solid rgba(239,68,68,0.9)' : `1px solid ${theme.border}`,
+        padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        transition: 'background 0.3s, border-color 0.3s'
+      }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ fontSize: '1.4rem', fontWeight: 900 }}><span style={{ color: theme.text }}>{settings.targa}</span></div>
-          <a href="https://docs.google.com/spreadsheets/d/1egavj34-1EM3lY91kSikV48G7zxrnM7tOKdJ5GqPhY4/edit?gid=433900317#gid=433900317" target="_blank" rel="noreferrer" style={{ display:'flex', alignItems:'center', padding:'3px 9px', background:'rgba(0,229,255,0.08)', border:'1px solid rgba(0,229,255,0.25)', borderRadius:20, color:theme.accent, fontSize:'0.75rem', fontWeight:700, textDecoration:'none' }}>📊</a>
-          
-          <button onClick={() => { const n = themeMode === 'dark' ? 'light' : themeMode === 'light' ? 'auto' : 'dark'; setThemeMode(n); localStorage.setItem('mgs5_theme', n); }} style={{ padding: '4px 8px', background: 'rgba(255,255,255,0.05)', border: `1px solid ${theme.border}`, borderRadius: 20, color: theme.text2, cursor: 'pointer', fontSize: '0.7rem' }}>
-            {themeMode === 'auto' ? '🌓' : themeMode === 'dark' ? '🌙' : '☀️'}
-          </button>
+          <div style={{ fontSize: '1.4rem', fontWeight: 900 }}><span style={{ color: supabaseOffline ? '#fff' : theme.text }}>{settings.targa}</span></div>
+          <a href="https://docs.google.com/spreadsheets/d/1egavj34-1EM3lY91kSikV48G7zxrnM7tOKdJ5GqPhY4/edit?gid=433900317#gid=433900317" target="_blank" rel="noreferrer" style={{ display:'flex', alignItems:'center', padding:'3px 9px', background: supabaseOffline ? 'rgba(255,255,255,0.15)' : 'rgba(0,229,255,0.08)', border: supabaseOffline ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(0,229,255,0.25)', borderRadius:20, color: supabaseOffline ? '#fff' : theme.accent, fontSize:'0.75rem', fontWeight:700, textDecoration:'none' }}>📊</a>
+
+          {supabaseOffline ? (
+            <button onClick={riattivaSupabase} title="Tocca per riattivare il sync" style={{ padding: '4px 8px', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: 20, color: '#fff', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 800 }}>
+              ⚠️ OFFLINE
+            </button>
+          ) : (
+            <button onClick={() => { const n = themeMode === 'dark' ? 'light' : themeMode === 'light' ? 'auto' : 'dark'; setThemeMode(n); localStorage.setItem('mgs5_theme', n); }} style={{ padding: '4px 8px', background: 'rgba(255,255,255,0.05)', border: `1px solid ${theme.border}`, borderRadius: 20, color: theme.text2, cursor: 'pointer', fontSize: '0.7rem' }}>
+              {themeMode === 'auto' ? '🌓' : themeMode === 'dark' ? '🌙' : '☀️'}
+            </button>
+          )}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 16px', textAlign: 'right' }}>
-          <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: theme.accent }}>{totali.km > 0 ? totali.km.toLocaleString('it') : '—'}</div>
-          <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: theme.accent }}>€{totali.costo.toFixed(2)}</div>
-          <div style={{ fontSize: '0.55rem', color: theme.text2, textTransform: 'uppercase' }}>KM TOTALI</div>
-          <div style={{ fontSize: '0.55rem', color: theme.text2, textTransform: 'uppercase' }}>COSTO TOT.</div>
-          <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: theme.accent }}>{totali.kwh.toFixed(1)}</div>
-          <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: theme.accent }}>{mediaKwh100 ? mediaKwh100.toFixed(2) : '—'}</div>
-          <div style={{ fontSize: '0.55rem', color: theme.text2, textTransform: 'uppercase' }}>KWH TOTALI</div>
-          <div style={{ fontSize: '0.55rem', color: theme.text2, textTransform: 'uppercase' }}>MEDIA /100KM</div>
+          <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: supabaseOffline ? '#fff' : theme.accent }}>{totali.km > 0 ? totali.km.toLocaleString('it') : '—'}</div>
+          <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: supabaseOffline ? '#fff' : theme.accent }}>€{totali.costo.toFixed(2)}</div>
+          <div style={{ fontSize: '0.55rem', color: supabaseOffline ? 'rgba(255,255,255,0.8)' : theme.text2, textTransform: 'uppercase' }}>KM TOTALI</div>
+          <div style={{ fontSize: '0.55rem', color: supabaseOffline ? 'rgba(255,255,255,0.8)' : theme.text2, textTransform: 'uppercase' }}>COSTO TOT.</div>
+          <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: supabaseOffline ? '#fff' : theme.accent }}>{totali.kwh.toFixed(1)}</div>
+          <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: supabaseOffline ? '#fff' : theme.accent }}>{mediaKwh100 ? mediaKwh100.toFixed(2) : '—'}</div>
+          <div style={{ fontSize: '0.55rem', color: supabaseOffline ? 'rgba(255,255,255,0.8)' : theme.text2, textTransform: 'uppercase' }}>KWH TOTALI</div>
+          <div style={{ fontSize: '0.55rem', color: supabaseOffline ? 'rgba(255,255,255,0.8)' : theme.text2, textTransform: 'uppercase' }}>MEDIA /100KM</div>
         </div>
       </header>
 

@@ -292,7 +292,7 @@ export default function App() {
   const [editIdx,    setEditIdx]    = useState(null);
   const [confirmIdx, setConfirmIdx] = useState(null);
   const [mesiAperti, setMesiAperti] = useState({});
-  const [openSec,    setOpenSec]    = useState({ veicolo: true, preset: false, sheets: false, supabase: false, danger: false });
+  const [openSec,    setOpenSec]    = useState({ veicolo: true, preset: false, sheets: false, supabase: false, danger: false, archivio: false });
   const { toast, show: showToast }  = useToast();
   const [supabaseOffline, setSupabaseOffline] = useState(() => localStorage.getItem('mgs5_supabase_offline') === '1');
 
@@ -711,7 +711,11 @@ export default function App() {
         {view === 'dati' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 16, padding: 16 }}>
-              <div style={{ fontSize: '0.65rem', color: theme.text2, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>Archivio Dati</div>
+              <div onClick={() => toggleSec('archivio')} style={{ fontSize: '0.65rem', color: theme.text2, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12, cursor: 'pointer', display: 'flex', justifyContent: 'space-between' }}>
+                <span>Archivio Dati</span><span>{openSec.archivio ? '▲' : '▼'}</span>
+              </div>
+              {openSec.archivio && (
+              <>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <button onClick={()=>{ const inp=document.createElement('input'); inp.type='file'; inp.accept='.csv'; inp.onchange=importaCSV; inp.click(); }} style={{ padding:'16px 0', background:'rgba(0,229,255,0.1)', border:`1px solid rgba(0,229,255,0.3)`, borderRadius:14, color:theme.accent, fontSize:'0.8rem', fontWeight:800, textTransform:'uppercase', cursor:'pointer' }}>📊 Importa CSV</button>
                 <button onClick={esportaCSV} style={{ padding:'16px 0', background:'rgba(0,229,255,0.1)', border:`1px solid rgba(0,229,255,0.3)`, borderRadius:14, color:theme.accent, fontSize:'0.8rem', fontWeight:800, textTransform:'uppercase', cursor:'pointer' }}>📊 Esporta CSV</button>
@@ -723,6 +727,8 @@ export default function App() {
                 <button onClick={esportaSupabaseBackup} style={{ padding:'16px 0', background:'rgba(245,158,11,0.1)', border:'1px solid rgba(245,158,11,0.35)', borderRadius:14, color:'#f59e0b', fontSize:'0.8rem', fontWeight:800, textTransform:'uppercase', cursor:'pointer' }}>📤 Esporta Supabase</button>
               </div>
               <div style={{ fontSize: '0.65rem', color: theme.text2, marginTop: 10, lineHeight: 1.6 }}>⚠️ Importa sovrascrive tutti i dati esistenti</div>
+              </>
+              )}
             </div>
             <div style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 16, padding: 16 }}>
               <div style={{ fontSize: '0.65rem', color: theme.text2, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>Riepilogo Mensile</div>

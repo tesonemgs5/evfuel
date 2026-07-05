@@ -292,7 +292,7 @@ export default function App() {
   const [editIdx,    setEditIdx]    = useState(null);
   const [confirmIdx, setConfirmIdx] = useState(null);
   const [mesiAperti, setMesiAperti] = useState({});
-  const [openSec,    setOpenSec]    = useState({ veicolo: true, preset: false, sheets: false, danger: false });
+  const [openSec,    setOpenSec]    = useState({ veicolo: true, preset: false, sheets: false, supabase: false, danger: false });
   const { toast, show: showToast }  = useToast();
   const [supabaseOffline, setSupabaseOffline] = useState(() => localStorage.getItem('mgs5_supabase_offline') === '1');
 
@@ -499,6 +499,37 @@ export default function App() {
     }
   }
 
+  function esportaSupabaseBackup() {
+    const blob = new Blob([JSON.stringify(ricariche, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'backup_supabase.json'; a.click();
+    showToast('💾 Backup Supabase esportato!');
+  }
+
+  function importaSupabaseBackup(e) {
+    const file = e.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try {
+        const lista = JSON.parse(ev.target.result).map(sanitizzaRicarica);
+        const { error: delError } = await supabase.from('ricariche').delete().neq('id', 0);
+        if (delError) throw delError;
+        for (const r of lista) {
+          await supabase.from('ricariche').insert({
+            data: r.data, luogo: r.luogo, km: r.km, km_parziali: r.kmParziali,
+            pct_prima: r.pctPrima, pct_dopo: r.pctDopo, kwh_eff: r.kwhEff,
+            kwh_teor: r.kwhTeor, prezzo_kwh: r.prezzoKwh, costo: r.costo, kwh_100: r.kwh100
+          });
+        }
+        showToast(`✅ Ripristinate ${lista.length} ricariche su Supabase!`);
+        await loadRicariche();
+      } catch (err) {
+        showToast('❌ Errore import Supabase: ' + err.message, '#ef4444');
+        segnalaSupabaseOffline();
+      }
+    };
+    reader.readAsText(file);
+  }
+
   const isDark = themeMode === 'auto' ? window.matchMedia('(prefers-color-scheme: dark)').matches : themeMode === 'dark';
   const theme = isDark ? THEMES.dark : THEMES.light;
 
@@ -542,7 +573,6 @@ export default function App() {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ fontSize: '1.4rem', fontWeight: 900 }}><span style={{ color: supabaseOffline ? '#fff' : theme.text }}>{settings.targa}</span></div>
-          <a href="https://docs.google.com/spreadsheets/d/1egavj34-1EM3lY91kSikV48G7zxrnM7tOKdJ5GqPhY4/edit?gid=433900317#gid=433900317" target="_blank" rel="noreferrer" style={{ display:'flex', alignItems:'center', padding:'3px 9px', background: supabaseOffline ? 'rgba(255,255,255,0.15)' : 'rgba(0,229,255,0.08)', border: supabaseOffline ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(0,229,255,0.25)', borderRadius:20, color: supabaseOffline ? '#fff' : theme.accent, fontSize:'0.75rem', fontWeight:700, textDecoration:'none' }}>📊</a>
 
           {supabaseOffline ? (
             <button onClick={riattivaSupabase} title="Tocca per riattivare il sync" style={{ padding: '4px 8px', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: 20, color: '#fff', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 800 }}>
@@ -770,6 +800,28 @@ export default function App() {
                   <button onClick={importaSheets} style={{ padding: 10, background: 'rgba(0,229,255,0.1)', border: `1px solid ${theme.accent}`, color: theme.accent, borderRadius: 10, cursor: 'pointer', fontWeight: 700 }}>
                     📥 Importa da Sheets
                   </button>
+                  <a href="https://docs.google.com/spreadsheets/d/1egavj34-1EM3lY91kSikV48G7zxrnM7tOKdJ5GqPhY4/edit?gid=433900317#gid=433900317" target="_blank" rel="noreferrer" style={{ padding: 10, background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.35)', color: '#a78bfa', borderRadius: 10, cursor: 'pointer', fontWeight: 700, textAlign: 'center', textDecoration: 'none' }}>
+                    📊 Visualizza Sheet
+                  </a>
+                </div>
+              )}
+            </div>
+
+            <div style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 16, overflow: 'hidden' }}>
+              <div onClick={() => toggleSec('supabase')} style={{ padding: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', color: theme.text }}>
+                <span>🗄️ Supabase</span><span>{openSec.supabase ? '▲' : '▼'}</span>
+              </div>
+              {openSec.supabase && (
+                <div style={{ padding: 14, borderTop: `1px solid ${theme.border}`, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <button onClick={esportaSupabaseBackup} style={{ padding: 10, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.35)', color: '#f59e0b', borderRadius: 10, cursor: 'pointer', fontWeight: 700 }}>
+                    📤 Esporta Supabase
+                  </button>
+                  <button onClick={()=>{ const inp=document.createElement('input'); inp.type='file'; inp.accept='.json,application/json'; inp.onchange=importaSupabaseBackup; inp.click(); }} style={{ padding: 10, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.35)', color: '#10b981', borderRadius: 10, cursor: 'pointer', fontWeight: 700 }}>
+                    📥 Importa Supabase
+                  </button>
+                  <a href={`https://supabase.com/dashboard/project/${SUPABASE_URL.replace('https://','').replace('.supabase.co','')}/editor`} target="_blank" rel="noreferrer" style={{ padding: 10, background: 'rgba(0,229,255,0.1)', border: `1px solid ${theme.accent}`, color: theme.accent, borderRadius: 10, cursor: 'pointer', fontWeight: 700, textAlign: 'center', textDecoration: 'none' }}>
+                    🔎 Visualizza Dati
+                  </a>
                 </div>
               )}
             </div>

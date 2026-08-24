@@ -55,7 +55,8 @@ function normalizzaData(d) {
 function sanitizzaRicarica(r) {
   const pctPrima = toNum(r?.pct_prima ?? r?.pctPrima, 0);
   const pctDopo  = toNum(r?.pct_dopo  ?? r?.pctDopo,  0);
-  const kwhEff   = toNum(r?.kwh_eff   ?? r?.kwhEff,   0);
+  const kwhEffRaw = r?.kwh_eff ?? r?.kwhEff;
+  const kwhEff   = (kwhEffRaw === null || kwhEffRaw === undefined || kwhEffRaw === '') ? null : toNum(kwhEffRaw, null);
   const prezzoKwh = toNum(r?.prezzo_kwh ?? r?.prezzoKwh, 0);
   const costo    = toNum(r?.costo, 0);
   const luogo = ((r?.luogo || '').toString().trim().toUpperCase()) || '';
@@ -75,17 +76,63 @@ function sanitizzaRicarica(r) {
   };
 }
 
-function ricalcolaKmParziali(lista) {
+// Step 1: calcola kmParziali reali (km percorsi dall'odometro rispetto alla ricarica precedente).
+// Questo valore è sempre affidabile, indipendentemente dalle percentuali di ricarica.
+function calcolaKmParzialiReali(lista) {
   return lista.map((r, i) => {
     if (r.km && r.km > 0) {
       const prev = lista.slice(0, i).filter(x => x.km && x.km > 0).pop();
-      if (!prev) return { ...r, kmParziali: r.km, kwh100: r.kwhEff > 0 ? (r.kwhEff / r.km) * 100 : null };
-      const kmParziali = r.km - prev.km;
-      const kwh100 = kmParziali > 0 ? (r.kwhEff / kmParziali) * 100 : null;
-      return { ...r, kmParziali, kwh100 };
+      if (!prev) return { ...r, kmParziali: r.km };
+      return { ...r, kmParziali: r.km - prev.km };
     }
     return r;
   });
+}
+
+// Step 2: calcola kwh100 usando la logica del "blocco chiuso da 80% esatto".
+// Una ricarica che arriva esattamente a pctDopo === 80 chiude il blocco: il consumo
+// mostrato su quella ricarica è la somma di tutti i kWh e km del blocco (comprese
+// eventuali ricariche intermedie sovrapposte, che restano senza kwh100 proprio).
+// Ricariche che arrivano oltre 80 (es. 90, 100) NON chiudono il blocco: restano "in sospeso"
+// e il loro kWh/km confluiscono nel blocco che si chiuderà alla prossima ricarica esatta all'80%.
+// Ricariche senza kWh effettivi inseriti (kwhEff === null) non vengono mai usate per calcolare
+// un consumo, né proprio né aggregato: il blocco resta "incompleto" finché non si aggiunge il dato.
+function applicaLogicaBlocco80(lista) {
+  const risultato = lista.map(r => ({ ...r, kwh100: null }));
+  let blocco = { kwhTot: 0, kmTot: 0, completo: true, indici: [] };
+
+  for (let i = 0; i < risultato.length; i++) {
+    const r = risultato[i];
+    const km = Number(r.kmParziali) || 0;
+    const haKwh = r.kwhEff !== null && r.kwhEff !== undefined;
+
+    blocco.kmTot += km;
+    blocco.indici.push(i);
+    if (haKwh) {
+      blocco.kwhTot += Number(r.kwhEff) || 0;
+    } else {
+      blocco.completo = false; // manca un dato: il blocco non può dare un consumo affidabile
+    }
+
+    const pctDopoNum = r.pctDopo > 1 ? r.pctDopo : r.pctDopo * 100;
+    const chiudeBlocco = Math.round(pctDopoNum) === 80;
+
+    if (chiudeBlocco) {
+      if (blocco.completo && blocco.kmTot > 0) {
+        const kwh100Aggregato = (blocco.kwhTot / blocco.kmTot) * 100;
+        risultato[i] = { ...r, kwh100: kwh100Aggregato };
+      }
+      // reset per il prossimo blocco, indipendentemente dall'esito
+      blocco = { kwhTot: 0, kmTot: 0, completo: true, indici: [] };
+    }
+  }
+
+  return risultato;
+}
+
+function ricalcolaKmParziali(lista) {
+  const conKm = calcolaKmParzialiReali(lista);
+  return applicaLogicaBlocco80(conKm);
 }
 
 function useToast() {
@@ -161,7 +208,7 @@ function FormRicarica({ settings, ricariche, editIdx, onSave, onCancel, showToas
   const [fKmParz, setFKmParz] = useState(ex && ex.kmParziali !== null ? String(ex.kmParziali) : '');
   const [fPrima,  setFPrima]  = useState(ex ? String(ex.pctPrima > 1 ? ex.pctPrima : ex.pctPrima * 100) : '');
   const [fDopo,   setFDopo]   = useState(ex ? String(ex.pctDopo > 1 ? ex.pctDopo : ex.pctDopo * 100) : '');
-  const [fKwh,    setFKwh]    = useState(ex ? String(ex.kwhEff) : '');
+  const [fKwh,    setFKwh]    = useState(ex && ex.kwhEff !== null && ex.kwhEff !== undefined ? String(ex.kwhEff) : '');
   const [fPrezzo, setFPrezzo] = useState(ex ? String(ex.prezzoKwh) : String(settings.prezzo));
 
   useEffect(() => {
@@ -173,9 +220,10 @@ function FormRicarica({ settings, ricariche, editIdx, onSave, onCancel, showToas
   const dopo  = parseFloat(fDopo)  || 0;
   const diff  = dopo - prima;
   const kwhTeor  = settings.batteria * (diff / 100);
-  const kwhEff   = parseFloat(fKwh) || kwhTeor;
+  const kwhEffInserito = fKwh !== '' && !isNaN(parseFloat(fKwh));
+  const kwhEff   = kwhEffInserito ? parseFloat(fKwh) : null;
   const prezzo   = parseFloat(fPrezzo) || settings.prezzo;
-  const costo    = kwhEff * prezzo;
+  const costo    = kwhEff !== null ? kwhEff * prezzo : null;
   const kmParzN  = parseFloat(fKmParz);
   const kmN      = parseFloat(fKm);
 
@@ -186,7 +234,7 @@ function FormRicarica({ settings, ricariche, editIdx, onSave, onCancel, showToas
     if (prev) kmParzAuto = kmN - prev.km;
   }
   const kmParzEff = (kmParzN > 0) ? kmParzN : kmParzAuto;
-  const kwh100 = kmParzEff ? (kwhEff / kmParzEff) * 100 : null;
+  const kwh100 = (kmParzEff && kwhEff !== null) ? (kwhEff / kmParzEff) * 100 : null;
 
   function salva() {
     if (!fData || prima <= 0 || dopo <= 0) { showToast('⚠️ Compila data e %', '#f59e0b'); return; }
@@ -195,7 +243,7 @@ function FormRicarica({ settings, ricariche, editIdx, onSave, onCancel, showToas
       id: ex?.id || null,
       data: fData, luogo: fLuogo || null, km: parseFloat(fKm) || null,
       pctPrima: prima, pctDopo: dopo, kwhEff, kwhTeor, prezzoKwh: prezzo, costo,
-      kmParziali: kmParzEff || null, kwh100: kmParzEff ? (kwhEff / kmParzEff) * 100 : null
+      kmParziali: kmParzEff || null, kwh100
     });
   }
 
@@ -262,7 +310,8 @@ function FormRicarica({ settings, ricariche, editIdx, onSave, onCancel, showToas
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <label style={{ fontSize: '0.62rem', textTransform: 'uppercase', color: T.text2 }}>kWh effettivi</label>
-          <input type="number" value={fKwh} onChange={e => setFKwh(e.target.value)} placeholder="dal display" step="0.01" style={inputSt(T)} />
+          <input type="number" value={fKwh} onChange={e => setFKwh(e.target.value)} placeholder="inserisci valore reale" step="0.01" style={inputSt(T)} />
+          {!kwhEffInserito && <div style={{ fontSize: '0.6rem', color: '#f59e0b', marginTop: 2 }}>⚠️ vuoto: nessun costo/consumo calcolato</div>}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <label style={{ fontSize: '0.62rem', textTransform: 'uppercase', color: T.text2 }}>kWh / 100km</label>
@@ -356,7 +405,7 @@ export default function App() {
         kwh_eff: record.kwhEff,
         kwh_teor: record.kwhTeor,
         prezzo_kwh: record.prezzoKwh,
-        costo: record.costo > 0 ? record.costo : record.kwhEff * record.prezzoKwh,
+        costo: record.kwhEff !== null && record.kwhEff !== undefined ? (record.costo || record.kwhEff * record.prezzoKwh) : null,
         kwh_100: record.kwh100,
       };
 
@@ -634,7 +683,7 @@ export default function App() {
                       <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: theme.accent, lineHeight: 1.8 }}>€{mData.costoTotale.toFixed(2)}</div>
                       <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: theme.accent, lineHeight: 1.8 }}>{mData.kwhTotali.toFixed(1)} kWh</div>
                       <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: theme.green, lineHeight: 1.8 }}>€{mData.ricariche.filter(r=>(r.luogo||'').toUpperCase()==='CASA').reduce((s,r)=>s+r.costo,0).toFixed(2)}</div>
-                      <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: theme.green, lineHeight: 1.8 }}>{mData.ricariche.filter(r=>(r.luogo||'').toUpperCase()==='CASA').reduce((s,r)=>s+r.kwhEff,0).toFixed(1)} kWh</div>
+                      <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: theme.green, lineHeight: 1.8 }}>{mData.ricariche.filter(r=>(r.luogo||'').toUpperCase()==='CASA').reduce((s,r)=>s+(Number(r.kwhEff)||0),0).toFixed(1)} kWh</div>
                     </div>
                   </div>
                   {aperto && (

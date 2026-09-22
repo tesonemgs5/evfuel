@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+release-builds/
+
+# Capacitor & Android build files
+android/app/build/
+android/.gradle/
+android/captures/
+.gradle/
+
+# Keystore & Secrets (Firma e chiavi private)
+android/keystore.properties
+*.jks
+*.keystore
+*.p8
+*.p12
+*.key
+*.pem
+
+# IDE & System
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log

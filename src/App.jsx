@@ -1,5 +1,24 @@
 import { useState, useEffect } from "react";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { Capacitor } from '@capacitor/core';
+
+// Rileva se l'app è eseguita come APK nativo Capacitor
+export const isNativeCapacitor = () => {
+  return Capacitor.isNativePlatform() || window.location.protocol === 'capacitor:';
+};
+
+// Pulisce CacheStorage/ServiceWorker ad ogni cambio versione senza cancellare i dati utente
+export const purgaCacheInutile = async () => {
+  if (typeof window !== 'undefined' && 'caches' in window) {
+    try {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+      console.log('CacheStorage svuotato.');
+    } catch (e) {
+      console.warn('Impossibile svuotare caches:', e);
+    }
+  }
+};
 
 const SUPABASE_URL = "https://qvumsogedmqqrytvoajh.supabase.co";
 const SUPABASE_KEY = "sb_publishable_vxNzIfXIV6Qm1ZmMEtfk3Q_q7N-rc_z";
@@ -365,7 +384,19 @@ export default function App() {
   useEffect(() => { loadRicariche(); }, []);
 
   async function loadRicariche() {
-    setLoading(true);
+    const isOffline = !navigator.onLine;
+    const local = localStorage.getItem('mgs5_ricariche');
+    if (local) {
+      try {
+        setRicariche(ricalcolaKmParziali(JSON.parse(local)));
+      } catch {}
+      if (isOffline || isNativeCapacitor()) {
+        setLoading(false);
+      }
+    } else {
+      setLoading(true);
+    }
+
     try {
       const { data, error } = await supabase
         .from('ricariche')
@@ -378,11 +409,9 @@ export default function App() {
       localStorage.setItem('mgs5_ricariche', JSON.stringify(listaCalcolata));
       return listaCalcolata;
     } catch (e) {
-      try {
-        const local = localStorage.getItem('mgs5_ricariche');
-        if (local) setRicariche(ricalcolaKmParziali(JSON.parse(local)));
-      } catch {}
-      showToast('⚠️ Usando dati locali', '#f59e0b');
+      if (local) {
+        showToast('⚠️ Usando dati locali', '#f59e0b');
+      }
       segnalaSupabaseOffline();
     } finally {
       setLoading(false);

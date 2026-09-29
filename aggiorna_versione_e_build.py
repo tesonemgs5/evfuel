@@ -63,6 +63,31 @@ def bump_version_gradle(gradle_path, versione):
     print(f"build.gradle: versionCode {old_code} -> {new_code} | versionName {old_name} -> {versione}")
     return new_code
 
+def setup_java_home(android_dir):
+    jdk21 = r"C:\Users\franc\.jdks\jbr-21.0.11"
+    studio_jbr = r"C:\Program Files\Android\Android Studio\jbr"
+    if os.path.exists(jdk21):
+        os.environ["JAVA_HOME"] = jdk21
+    elif os.path.exists(studio_jbr):
+        os.environ["JAVA_HOME"] = studio_jbr
+
+    local_props = os.path.join(android_dir, "local.properties")
+    if not os.path.exists(local_props):
+        sdk_path = os.path.expanduser(r"~\AppData\Local\Android\Sdk").replace("\\", "\\\\")
+        with open(local_props, "w", encoding="utf-8") as f:
+            f.write(f"sdk.dir={sdk_path}\n")
+
+def check_keystore_properties(android_dir):
+    props_path = os.path.join(android_dir, "keystore.properties")
+    if os.path.exists(props_path):
+        with open(props_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        if "TuaPasswordKeyStore" in content or "TuaPasswordChiave" in content:
+            print("\n⚠️ ATTENZIONE: Il file 'android/keystore.properties' contiene ancora la password di esempio!")
+            print("  Sostituisci 'TuaPasswordKeyStore' con la password reale che hai scelto per il Keystore.")
+            pausa_finale()
+            sys.exit(1)
+
 def main():
     root = find_project_root()
     if not root:
@@ -71,6 +96,8 @@ def main():
         sys.exit(1)
 
     android_dir = os.path.join(root, "android")
+    setup_java_home(android_dir)
+    check_keystore_properties(android_dir)
     gradle_path = os.path.join(android_dir, "app", "build.gradle")
 
     run_cmd("npm run build", root, "Compilazione bundle web dist/")

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Capacitor } from '@capacitor/core';
+import { APP_VERSION } from './version';
 
 // Rileva se l'app è eseguita come APK nativo Capacitor
 export const isNativeCapacitor = () => {
@@ -932,6 +933,10 @@ export default function App() {
             <button onClick={() => loadRicariche()} style={{ width: '100%', padding: 14, background: 'rgba(0,229,255,0.08)', border: `1px solid rgba(0,229,255,0.25)`, borderRadius: 16, color: theme.accent, cursor: 'pointer', fontWeight: 700, fontSize: '0.9rem' }}>
               🔄 Aggiorna dati
             </button>
+
+            <div style={{ textAlign: 'center', marginTop: 12, marginBottom: 24, fontSize: '0.75rem', color: theme.text2, fontFamily: 'monospace', letterSpacing: '0.05em' }}>
+              Versione v{APP_VERSION}
+            </div>
 
           </div>
         )}

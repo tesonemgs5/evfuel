@@ -55,6 +55,12 @@ def bump_version_gradle(gradle_path, versione):
         f.write(content)
     return new_code
 
+def update_version_js(root, versione):
+    vjs_path = os.path.join(root, "src", "version.js")
+    with open(vjs_path, "w", encoding="utf-8") as f:
+        f.write(f'export const APP_VERSION = "{versione}";\n')
+    print(f"src/version.js: APP_VERSION = \"{versione}\"")
+
 def setup_java_home(android_dir):
     jdk21 = r"C:\Users\franc\.jdks\jbr-21.0.11"
     studio_jbr = r"C:\Program Files\Android\Android Studio\jbr"
@@ -89,14 +95,14 @@ def main():
 
     android_dir = os.path.join(root, "android")
     setup_java_home(android_dir)
-    check_keystore_properties(android_dir)
     gradle_path = os.path.join(android_dir, "app", "build.gradle")
+
+    versione = calcola_versione()
+    update_version_js(root, versione)
+    new_code = bump_version_gradle(gradle_path, versione)
 
     run_cmd("npm run build", root, "Compilazione Web dist/")
     run_cmd("npx cap copy android", root, "Sincronizzazione risorse Capacitor")
-
-    versione = calcola_versione()
-    new_code = bump_version_gradle(gradle_path, versione)
 
     is_win = os.name == "nt"
     gradlew = os.path.join(android_dir, "gradlew.bat" if is_win else "./gradlew")

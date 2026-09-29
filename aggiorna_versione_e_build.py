@@ -109,8 +109,8 @@ def main():
     is_win = os.name == "nt"
     gradlew = os.path.join(android_dir, "gradlew.bat" if is_win else "./gradlew")
     
-    print("\n[Eseguo] gradlew assembleRelease --parallel (Generazione APK veloce)...")
-    res = subprocess.run([gradlew, "assembleRelease", "--parallel"], cwd=android_dir, shell=is_win)
+    print("\n[Eseguo] gradlew :app:assembleRelease --parallel (Generazione APK veloce)...")
+    res = subprocess.run([gradlew, ":app:assembleRelease", "--parallel"], cwd=android_dir, shell=is_win)
     if res.returncode != 0:
         print("\nERRORE nella build Gradle dell'APK.")
         pausa_finale()
@@ -124,9 +124,9 @@ def main():
     if os.path.isfile(apk_src):
         dest = os.path.join(out_dir, "app-release.apk")
         shutil.copyfile(apk_src, dest)
-        print(f"\n✅ APK generato con successo:\n  - {dest}")
+        print(f"\n[OK] APK generato con successo:\n  - {dest}")
     else:
-        print("\n❌ APK non trovato!")
+        print("\n[ERRORE] APK non trovato!")
 
     pausa_finale()
 

@@ -101,8 +101,8 @@ def main():
     is_win = os.name == "nt"
     gradlew = os.path.join(android_dir, "gradlew.bat" if is_win else "./gradlew")
 
-    print("\n[Eseguo] gradlew bundleRelease --parallel (Generazione AAB Play Store)...")
-    res = subprocess.run([gradlew, "bundleRelease", "--parallel"], cwd=android_dir, shell=is_win)
+    print("\n[Eseguo] gradlew :app:bundleRelease --parallel (Generazione AAB Play Store)...")
+    res = subprocess.run([gradlew, ":app:bundleRelease", "--parallel"], cwd=android_dir, shell=is_win)
     if res.returncode != 0:
         print("\nERRORE nella build Gradle dell'AAB.")
         pausa_finale()
@@ -116,9 +116,9 @@ def main():
     if os.path.isfile(aab_src):
         dest = os.path.join(out_dir, "app-release.aab")
         shutil.copyfile(aab_src, dest)
-        print(f"\n✅ Pacchetto AAB (Google Play Store) creato in:\n  - {dest}")
+        print(f"\n[OK] Pacchetto AAB (Google Play Store) creato in:\n  - {dest}")
     else:
-        print("\n❌ File AAB non trovato!")
+        print("\n[ERRORE] File AAB non trovato!")
 
     pausa_finale()
 

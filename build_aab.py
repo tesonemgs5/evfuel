@@ -86,6 +86,22 @@ def check_keystore_properties(android_dir):
             pausa_finale()
             sys.exit(1)
 
+def get_version_or_create(root):
+    vjs_path = os.path.join(root, "src", "version.js")
+    if os.path.isfile(vjs_path):
+        with open(vjs_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        match = re.search(r'APP_VERSION\s*=\s*"([^"]+)"', content)
+        if match:
+            v = match.group(1)
+            print(f"Uso versione sincronizzata Web/APK: v{v}")
+            return v
+    v = calcola_versione()
+    with open(vjs_path, "w", encoding="utf-8") as f:
+        f.write(f'export const APP_VERSION = "{v}";\n')
+    print(f"Creata versione sincronizzata: v{v}")
+    return v
+
 def main():
     root = find_project_root()
     if not root:
@@ -97,8 +113,7 @@ def main():
     setup_java_home(android_dir)
     gradle_path = os.path.join(android_dir, "app", "build.gradle")
 
-    versione = calcola_versione()
-    update_version_js(root, versione)
+    versione = get_version_or_create(root)
     new_code = bump_version_gradle(gradle_path, versione)
 
     run_cmd("npm run build", root, "Compilazione Web dist/")

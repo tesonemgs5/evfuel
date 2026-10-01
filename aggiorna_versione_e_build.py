@@ -59,6 +59,10 @@ try:
 except Exception:
     ROMA = None
 
+# Prefisso del nome del file APK: <prefisso>-a-ggg-hhmm.apk
+# (es. evfuel-6-274-2240.apk). Cambialo qui se copi lo script in un altro progetto.
+PREFISSO_APK = "evfuel"
+
 
 def pausa_finale():
     try:
@@ -436,8 +440,8 @@ def main():
 
     copied = []
     if os.path.isfile(apk_src):
-        # Nome file: turni-a-ggg-hhmm.apk (es. versione 6.274.1145 -> turni-6-274-1145.apk)
-        nome_apk = "turni-" + nuova_versione.replace(".", "-") + ".apk"
+        # Nome file: <prefisso>-a-ggg-hhmm.apk (es. versione 6.274.2240 -> evfuel-6-274-2240.apk)
+        nome_apk = PREFISSO_APK + "-" + nuova_versione.replace(".", "-") + ".apk"
         dest = os.path.join(out_dir, nome_apk)
         shutil.copyfile(apk_src, dest)
         copied.append(dest)

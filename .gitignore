@@ -28,3 +28,14 @@ Thumbs.db
 .vscode/
 .idea/
 *.log
+node_modules/
+dist/
+release-builds/
+android/build/
+android/app/build/
+android/.gradle/
+android/local.properties
+android/keystore.properties
+*.jks
+*.keystore
+*.bak

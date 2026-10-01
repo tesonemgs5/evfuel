@@ -26,7 +26,7 @@ def find_project_root():
 def calcola_versione():
     ora = datetime.now()
     anno_cifra = str(ora.year)[-1]
-    giorno_anno = ora.timetuple().tm_yday
+    giorno_anno = f"{ora.timetuple().tm_yday:03d}"
     ora_minuti = ora.strftime("%H%M")
     return f"{anno_cifra}.{giorno_anno}.{ora_minuti}"
 
@@ -121,7 +121,8 @@ def main():
     setup_java_home(android_dir)
     gradle_path = os.path.join(android_dir, "app", "build.gradle")
 
-    versione = get_version_or_create(root)
+    versione = calcola_versione()
+    update_version_js(root, versione)
     new_code = bump_version_gradle(gradle_path, versione)
 
     run_cmd("npm run build", root, "Compilazione bundle web dist/")
@@ -143,7 +144,7 @@ def main():
     os.makedirs(out_dir, exist_ok=True)
 
     if os.path.isfile(apk_src):
-        dest = os.path.join(out_dir, "app-release.apk")
+        dest = os.path.join(out_dir, f"evfuel-{versione.replace('.', '-')}.apk")
         shutil.copyfile(apk_src, dest)
         print(f"\n[OK] APK generato con successo:\n  - {dest}")
     else:

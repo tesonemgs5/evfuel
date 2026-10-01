@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { useState, useEffect, useRef } from "react";
+import { createClient } from "@supabase/supabase-js";
 import { Capacitor } from '@capacitor/core';
 import { APP_VERSION } from './version';
 
@@ -24,6 +24,74 @@ export const purgaCacheInutile = async () => {
 const SUPABASE_URL = "https://qvumsogedmqqrytvoajh.supabase.co";
 const SUPABASE_KEY = "sb_publishable_vxNzIfXIV6Qm1ZmMEtfk3Q_q7N-rc_z";
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ---------------------------------------------------------------------
+// FUNZIONAMENTO OFFLINE: cache locale + coda di sincronizzazione.
+// Ogni modifica (salva / modifica / cancella) va PRIMA nella cache locale
+// (mgs5_ricariche), cosi' l'utente la vede subito anche senza rete; poi
+// viene messa in una coda (mgs5_coda_sync) che si svuota verso Supabase
+// appena c'e' connessione. Le ricariche create offline hanno un id
+// temporaneo ("loc_...") sostituito con quello vero dopo l'insert.
+// ---------------------------------------------------------------------
+const LS_RICARICHE = 'mgs5_ricariche';
+const LS_CODA = 'mgs5_coda_sync';
+const LS_CODA_SCARTATE = 'mgs5_coda_scartate';
+
+const generaIdTemp = () => 'loc_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const isIdTemp = id => typeof id === 'string' && id.startsWith('loc_');
+const nuovoOpId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+function leggiCoda() {
+  try {
+    const raw = localStorage.getItem(LS_CODA);
+    const c = raw ? JSON.parse(raw) : [];
+    return Array.isArray(c) ? c : [];
+  } catch { return []; }
+}
+function scriviCoda(coda) {
+  try { localStorage.setItem(LS_CODA, JSON.stringify(coda)); } catch { /* non bloccante */ }
+}
+function salvaCacheLocale(lista) {
+  try { localStorage.setItem(LS_RICARICHE, JSON.stringify(lista)); } catch { /* non bloccante */ }
+}
+function leggiCacheLocale() {
+  try {
+    const raw = localStorage.getItem(LS_RICARICHE);
+    return raw ? ricalcolaKmParziali(JSON.parse(raw)) : null;
+  } catch { return null; }
+}
+
+// Accoda un salvataggio. Se la ricarica e' ancora solo locale (id temporaneo)
+// si aggiorna l'insert gia' in coda; se ha un id vero si accoda/aggiorna un update.
+// "v" conta le modifiche: serve a capire se un'operazione e' cambiata mentre
+// veniva inviata.
+function accodaSalvataggio(id, payload) {
+  const coda = leggiCoda();
+  if (isIdTemp(id)) {
+    const op = coda.find(o => o.tipo === 'insert' && o.tempId === id);
+    if (op) { op.payload = payload; op.v = (op.v || 0) + 1; }
+    else coda.push({ opId: nuovoOpId(), tipo: 'insert', tempId: id, payload, ts: Date.now(), v: 0 });
+  } else {
+    const op = coda.find(o => o.tipo === 'update' && o.id === id);
+    if (op) { op.payload = payload; op.ts = Date.now(); op.v = (op.v || 0) + 1; }
+    else coda.push({ opId: nuovoOpId(), tipo: 'update', id, payload, ts: Date.now(), v: 0 });
+  }
+  scriviCoda(coda);
+}
+
+// Accoda una cancellazione. Una ricarica solo locale non ha mai raggiunto il
+// server: basta toglierla dalla coda. Una con id vero: si scartano gli update
+// in sospeso (inutili) e si accoda il delete.
+function accodaCancellazione(id) {
+  let coda = leggiCoda();
+  if (isIdTemp(id)) {
+    coda = coda.filter(o => !(o.tipo === 'insert' && o.tempId === id));
+  } else {
+    coda = coda.filter(o => !(o.tipo === 'update' && o.id === id));
+    coda.push({ opId: nuovoOpId(), tipo: 'delete', id, ts: Date.now(), v: 0 });
+  }
+  scriviCoda(coda);
+}
 
 const SHEETS_URL = "https://script.google.com/macros/s/AKfycbwE6U_h_lUBuNOOGedHxs7nAiLuP71YUcSmpbGZn1TyjusCmdmszC6Qqh7o4carU49l/exec";
 
@@ -353,8 +421,8 @@ function FormRicarica({ settings, ricariche, editIdx, onSave, onCancel, showToas
 export default function App() {
   const [view,       setView]       = useState('home');
   const [themeMode,  setThemeMode]  = useState(() => localStorage.getItem('mgs5_theme') || 'auto');
-  const [ricariche,  setRicariche]  = useState([]);
-  const [loading,    setLoading]    = useState(true);
+  const [ricariche,  setRicariche]  = useState(() => leggiCacheLocale() || []);
+  const [loading,    setLoading]    = useState(() => !localStorage.getItem(LS_RICARICHE));
   const [settings,   setSettings]   = useState(() => {
     try { const s = localStorage.getItem('mgs5_settings'); return s ? { ...DEFAULT_SETTINGS, ...JSON.parse(s) } : { ...DEFAULT_SETTINGS }; } catch { return { ...DEFAULT_SETTINGS }; }
   });
@@ -363,16 +431,23 @@ export default function App() {
   const [mesiAperti, setMesiAperti] = useState({});
   const [openSec,    setOpenSec]    = useState({ veicolo: true, preset: false, sheets: false, supabase: false, danger: false, archivio: false });
   const { toast, show: showToast }  = useToast();
-  const [supabaseOffline, setSupabaseOffline] = useState(() => localStorage.getItem('mgs5_supabase_offline') === '1');
+  // Stato rete REALE (non piu' un flag salvato che restava rosso finche' non
+  // si toccava il pulsante): supabaseOffline = senza rete oppure server non
+  // raggiungibile all'ultimo tentativo. Si azzera da solo appena torna la rete.
+  const [isOnline, setIsOnline] = useState(() => navigator.onLine);
+  const [supabaseKo, setSupabaseKo] = useState(false);
+  const [codaCount, setCodaCount] = useState(() => leggiCoda().length);
+  const supabaseOffline = !isOnline || supabaseKo;
+  const onlineRef = useRef(navigator.onLine);
+  const syncInCorso = useRef(false);
 
   function segnalaSupabaseOffline() {
-    localStorage.setItem('mgs5_supabase_offline', '1');
-    setSupabaseOffline(true);
+    setSupabaseKo(true);
   }
   function riattivaSupabase() {
-    localStorage.removeItem('mgs5_supabase_offline');
-    setSupabaseOffline(false);
-    showToast('✅ Sync riattivato', '#10b981');
+    setSupabaseKo(false);
+    showToast('🔄 Riprovo la sincronizzazione...', '#10b981');
+    loadRicariche();
   }
 
   useEffect(() => {
@@ -384,36 +459,159 @@ export default function App() {
 
   useEffect(() => { loadRicariche(); }, []);
 
-  async function loadRicariche() {
-    const isOffline = !navigator.onLine;
-    const local = localStorage.getItem('mgs5_ricariche');
-    if (local) {
-      try {
-        setRicariche(ricalcolaKmParziali(JSON.parse(local)));
-      } catch {}
-      if (isOffline || isNativeCapacitor()) {
-        setLoading(false);
+  // Svuota la coda verso Supabase, in ordine cronologico. Non parte senza rete.
+  // Usa solo localStorage, ref e setState funzionali: puo' essere chiamata
+  // anche da timer ed eventi senza problemi di closure.
+  async function processaCodaSync() {
+    if (syncInCorso.current) return;
+    if (leggiCoda().length === 0) { setCodaCount(0); return; }
+    if (navigator.onLine === false) return;
+    syncInCorso.current = true;
+    let inviate = 0;
+    try {
+      for (let giro = 0; giro < 500; giro++) {
+        const coda = leggiCoda().sort((x, y) => (x.ts || 0) - (y.ts || 0));
+        if (coda.length === 0) break;
+        const op = coda[0];
+        let idReale = null;
+        try {
+          let res;
+          if (op.tipo === 'insert') {
+            res = await supabase.from('ricariche').insert(op.payload).select('id').single();
+          } else if (op.tipo === 'update') {
+            res = await supabase.from('ricariche').update(op.payload).eq('id', op.id);
+          } else {
+            res = await supabase.from('ricariche').delete().eq('id', op.id);
+          }
+          if (res.error) throw res.error;
+          if (op.tipo === 'insert') idReale = res.data?.id ?? null;
+        } catch (err) {
+          if (err && err.code) {
+            // Risposta di rifiuto dal server (non un problema di rete): l'operazione
+            // non andra' mai a buon fine, quindi si toglie dalla coda (per non
+            // bloccare le altre) e si tiene traccia in mgs5_coda_scartate.
+            scriviCoda(leggiCoda().filter(o => o.opId !== op.opId));
+            try {
+              const sc = JSON.parse(localStorage.getItem(LS_CODA_SCARTATE) || '[]');
+              sc.push({ ...op, errore: err.message || String(err), quando: new Date().toISOString() });
+              localStorage.setItem(LS_CODA_SCARTATE, JSON.stringify(sc.slice(-50)));
+            } catch { /* non bloccante */ }
+            showToast('❌ Una modifica è stata rifiutata dal server: ' + (err.message || ''), '#ef4444');
+            continue;
+          }
+          // Errore di rete: si ferma qui e si riprova piu' tardi.
+          setSupabaseKo(true);
+          break;
+        }
+
+        inviate++;
+        const attuale = leggiCoda();
+        const inCoda = attuale.find(o => o.opId === op.opId);
+        let nuovaCoda = attuale;
+        if (!inCoda) {
+          // Tolta dalla coda mentre veniva inviata (ricarica cancellata nel
+          // frattempo): se era un insert ora esiste sul server e va cancellata.
+          if (op.tipo === 'insert' && idReale != null) {
+            nuovaCoda = [...attuale, { opId: nuovoOpId(), tipo: 'delete', id: idReale, ts: Date.now(), v: 0 }];
+          }
+        } else if ((inCoda.v || 0) === (op.v || 0)) {
+          nuovaCoda = attuale.filter(o => o.opId !== op.opId);
+        } else if (op.tipo === 'insert' && idReale != null) {
+          // Modificata mentre veniva inviata: diventa un update sul record appena creato.
+          nuovaCoda = attuale.map(o => o.opId === op.opId ? { ...o, tipo: 'update', id: idReale, tempId: undefined } : o);
+        }
+        // (un update modificato mentre veniva inviato resta in coda e riparte al giro dopo)
+        scriviCoda(nuovaCoda);
+        if (op.tipo === 'insert' && idReale != null) sostituisciIdTemp(op.tempId, idReale);
       }
-    } else {
-      setLoading(true);
+    } finally {
+      syncInCorso.current = false;
+      const rimaste = leggiCoda().length;
+      setCodaCount(rimaste);
+      if (inviate > 0 && rimaste === 0) setSupabaseKo(false);
     }
+  }
+
+  function sostituisciIdTemp(tempId, idReale) {
+    try {
+      const raw = localStorage.getItem(LS_RICARICHE);
+      if (raw) {
+        const l = JSON.parse(raw).map(r => r.id === tempId ? { ...r, id: idReale } : r);
+        localStorage.setItem(LS_RICARICHE, JSON.stringify(l));
+      }
+    } catch { /* non bloccante */ }
+    setRicariche(prev => prev.map(r => r.id === tempId ? { ...r, id: idReale } : r));
+  }
+
+  // Per le operazioni "in blocco" (reset totale, import) serve la rete e che
+  // non ci siano modifiche in attesa: altrimenti verrebbero perse o duplicate.
+  async function richiediOnlineECodaVuota() {
+    if (!navigator.onLine) {
+      showToast('📴 Serve la connessione per questa operazione', '#f59e0b');
+      return false;
+    }
+    await processaCodaSync();
+    if (leggiCoda().length > 0) {
+      showToast('⏳ Ci sono modifiche in attesa di sincronizzazione: riprova tra poco', '#f59e0b');
+      return false;
+    }
+    return true;
+  }
+
+  // Listener rete: evento 'online'/'offline' + controllo ogni 3 secondi (su
+  // Capacitor Android gli eventi spesso non scattano) + nuovo tentativo della
+  // coda ogni 2 minuti (linea "ballerina": navigator.onLine resta true ma le
+  // richieste cadono, quindi l'evento 'online' non arriva mai).
+  useEffect(() => {
+    function aggiornaStatoRete() {
+      const reale = navigator.onLine;
+      if (reale === onlineRef.current) return;
+      onlineRef.current = reale;
+      setIsOnline(reale);
+      if (reale) { setSupabaseKo(false); processaCodaSync(); }
+    }
+    window.addEventListener('online', aggiornaStatoRete);
+    window.addEventListener('offline', aggiornaStatoRete);
+    const timerRete = setInterval(aggiornaStatoRete, 3000);
+    const timerCoda = setInterval(() => { processaCodaSync(); }, 2 * 60 * 1000);
+    return () => {
+      window.removeEventListener('online', aggiornaStatoRete);
+      window.removeEventListener('offline', aggiornaStatoRete);
+      clearInterval(timerRete);
+      clearInterval(timerCoda);
+    };
+  }, []);
+
+  async function loadRicariche() {
+    const locale = leggiCacheLocale();
+    if (locale) setRicariche(locale);
+    // Con dati in cache l'app e' subito utilizzabile: non si aspetta mai la rete.
+    setLoading(!locale && navigator.onLine !== false);
+    if (navigator.onLine === false) return locale || [];
 
     try {
+      // Prima si smaltiscono le modifiche fatte offline: scaricare dal server
+      // adesso le cancellerebbe dalla cache locale.
+      await processaCodaSync();
+      if (leggiCoda().length > 0) return leggiCacheLocale() || [];
+
       const { data, error } = await supabase
         .from('ricariche')
         .select('*')
         .order('data', { ascending: true });
       if (error) throw error;
+      // Se nel frattempo e' stata fatta una modifica locale, non sovrascriverla.
+      if (leggiCoda().length > 0) return leggiCacheLocale() || [];
       const lista = (data || []).map(sanitizzaRicarica).sort((a, b) => (a.km || 0) - (b.km || 0));
       const listaCalcolata = ricalcolaKmParziali(lista);
       setRicariche(listaCalcolata);
-      localStorage.setItem('mgs5_ricariche', JSON.stringify(listaCalcolata));
+      salvaCacheLocale(listaCalcolata);
+      setSupabaseKo(false);
       return listaCalcolata;
     } catch (e) {
-      if (local) {
-        showToast('⚠️ Usando dati locali', '#f59e0b');
-      }
+      if (locale) showToast('⚠️ Usando dati locali', '#f59e0b');
       segnalaSupabaseOffline();
+      return leggiCacheLocale() || [];
     } finally {
       setLoading(false);
     }
@@ -424,34 +622,44 @@ export default function App() {
   }
 
   async function salvaRicarica(record) {
-    try {
-      const dbRecord = {
-        data: record.data,
-        luogo: record.luogo || null,
-        km: record.km,
-        km_parziali: record.kmParziali,
-        pct_prima: record.pctPrima,
-        pct_dopo: record.pctDopo,
-        kwh_eff: record.kwhEff,
-        kwh_teor: record.kwhTeor,
-        prezzo_kwh: record.prezzoKwh,
-        costo: record.kwhEff !== null && record.kwhEff !== undefined ? (record.costo || record.kwhEff * record.prezzoKwh) : null,
-        kwh_100: record.kwh100,
-      };
+    const dbRecord = {
+      data: record.data,
+      luogo: record.luogo || null,
+      km: record.km,
+      km_parziali: record.kmParziali,
+      pct_prima: record.pctPrima,
+      pct_dopo: record.pctDopo,
+      kwh_eff: record.kwhEff,
+      kwh_teor: record.kwhTeor,
+      prezzo_kwh: record.prezzoKwh,
+      costo: record.kwhEff !== null && record.kwhEff !== undefined ? (record.costo || record.kwhEff * record.prezzoKwh) : null,
+      kwh_100: record.kwh100,
+    };
+    const isNuova = !record.id;
+    const idLocale = record.id || generaIdTemp();
 
-      if (record.id) {
-        const { error } = await supabase.from('ricariche').update(dbRecord).eq('id', record.id);
-        if (error) throw error;
+    try {
+      // 1) SUBITO in locale: la ricarica si vede all'istante, online o offline.
+      const recordLocale = sanitizzaRicarica({ ...dbRecord, id: idLocale });
+      const base = isNuova ? [...ricariche, recordLocale] : ricariche.map(r => r.id === record.id ? recordLocale : r);
+      const nuove = ricalcolaKmParziali([...base].sort((a, b) => (a.km || 0) - (b.km || 0)));
+      setRicariche(nuove);
+      salvaCacheLocale(nuove);
+
+      // 2) In coda e invio a Supabase (se c'e' rete parte subito).
+      accodaSalvataggio(idLocale, dbRecord);
+      setCodaCount(leggiCoda().length);
+      await processaCodaSync();
+
+      if (leggiCoda().length === 0) {
+        showToast(isNuova ? '✅ Salvata!' : '✅ Aggiornata!');
+        const listaAggiornata = await loadRicariche();
+        await esportaSheets(listaAggiornata);
       } else {
-        const { error } = await supabase.from('ricariche').insert(dbRecord);
-        if (error) throw error;
+        showToast('📴 Salvata sul dispositivo: verrà sincronizzata appena torna la connessione', '#f59e0b');
       }
-      showToast(record.id ? '✅ Aggiornata!' : '✅ Salvata!');
-      const listaAggiornata = await loadRicariche();
-      await esportaSheets(listaAggiornata);
     } catch (e) {
       showToast('❌ Errore salvataggio: ' + (e.message || ''), '#ef4444');
-      segnalaSupabaseOffline();
     }
     setEditIdx(null);
     setView('home');
@@ -460,21 +668,23 @@ export default function App() {
   async function cancellaRicarica(idx) {
     try {
       if (idx === 'all') {
+        if (!(await richiediOnlineECodaVuota())) { setConfirmIdx(null); return; }
         const { error } = await supabase.from('ricariche').delete().neq('id', 0);
         if (error) throw error;
         setRicariche([]);
-        localStorage.removeItem('mgs5_ricariche');
-        showToast('🗑 Dati resettati');
+        localStorage.removeItem(LS_RICARICHE);
+        showToast('🗑️ Dati resettati');
       } else {
         const r = ricariche[idx];
-        if (r?.id) {
-          const { error } = await supabase.from('ricariche').delete().eq('id', r.id);
-          if (error) throw error;
-        }
+        // Subito in locale, poi in coda (se c'e' rete parte subito).
         const nuove = ricalcolaKmParziali(ricariche.filter((_, i) => i !== idx));
         setRicariche(nuove);
-        localStorage.setItem('mgs5_ricariche', JSON.stringify(nuove));
-        showToast('🗑 Ricarica rimossa');
+        salvaCacheLocale(nuove);
+        if (r?.id) accodaCancellazione(r.id);
+        setCodaCount(leggiCoda().length);
+        await processaCodaSync();
+        if (leggiCoda().length > 0) showToast('📴 Ricarica rimossa: verrà sincronizzata appena torna la connessione', '#f59e0b');
+        else showToast('🗑️ Ricarica rimossa');
       }
     } catch (e) {
       showToast('❌ Errore cancellazione', '#ef4444');
@@ -496,6 +706,7 @@ export default function App() {
     const reader = new FileReader();
     reader.onload = async (ev) => {
       try {
+        if (!(await richiediOnlineECodaVuota())) return;
         const lines = ev.target.result.trim().split('\n');
         const keys = lines[0].split(',');
         const lista = lines.slice(1).map(l => {
@@ -525,6 +736,7 @@ export default function App() {
     const reader = new FileReader();
     reader.onload = async (ev) => {
       try {
+        if (!(await richiediOnlineECodaVuota())) return;
         const lista = JSON.parse(ev.target.result).map(sanitizzaRicarica);
         for (const r of lista) {
           await supabase.from('ricariche').insert({ data:r.data, luogo:r.luogo, km:r.km, km_parziali:r.kmParziali, pct_prima:r.pctPrima, pct_dopo:r.pctDopo, kwh_eff:r.kwhEff, kwh_teor:r.kwhTeor, prezzo_kwh:r.prezzoKwh, costo:r.costo, kwh_100:r.kwh100 });
@@ -550,6 +762,7 @@ export default function App() {
   async function importaSheets() {
     const url = localStorage.getItem('mgs5_sheetsUrl') || SHEETS_URL;
     try {
+        if (!(await richiediOnlineECodaVuota())) return;
       showToast('⏳ Importazione...', '#f59e0b');
       const res = await fetch(url);
       const json = await res.json();
@@ -589,6 +802,7 @@ export default function App() {
     const reader = new FileReader();
     reader.onload = async (ev) => {
       try {
+        if (!(await richiediOnlineECodaVuota())) return;
         const lista = JSON.parse(ev.target.result).map(sanitizzaRicarica);
         const { error: delError } = await supabase.from('ricariche').delete().neq('id', 0);
         if (delError) throw delError;
@@ -654,8 +868,8 @@ export default function App() {
           <div style={{ fontSize: '1.4rem', fontWeight: 900 }}><span style={{ color: supabaseOffline ? '#fff' : theme.text }}>{settings.targa}</span></div>
 
           {supabaseOffline ? (
-            <button onClick={riattivaSupabase} title="Tocca per riattivare il sync" style={{ padding: '4px 8px', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: 20, color: '#fff', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 800 }}>
-              ⚠️ OFFLINE
+            <button onClick={riattivaSupabase} title="Tocca per riprovare la sincronizzazione" style={{ padding: '4px 8px', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: 20, color: '#fff', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 800 }}>
+              ⚠️ OFFLINE{codaCount > 0 ? ` · ${codaCount} in attesa` : ''}
             </button>
           ) : (
             <button onClick={() => { const n = themeMode === 'dark' ? 'light' : themeMode === 'light' ? 'auto' : 'dark'; setThemeMode(n); localStorage.setItem('mgs5_theme', n); }} style={{ padding: '4px 8px', background: 'rgba(255,255,255,0.05)', border: `1px solid ${theme.border}`, borderRadius: 20, color: theme.text2, cursor: 'pointer', fontSize: '0.7rem' }}>

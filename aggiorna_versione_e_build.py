@@ -110,6 +110,20 @@ def get_version_or_create(root):
     print(f"Creata versione sincronizzata: v{v}")
     return v
 
+def pubblica_web(root, versione):
+    is_win = os.name == "nt"
+    print("\n[Eseguo] Pubblicazione web (stessa versione dell'APK)...")
+    for cmd in (
+        ["git", "add", "-A"],
+        ["git", "commit", "-m", f"build v{versione}"],
+        ["git", "push"],
+    ):
+        res = subprocess.run(cmd, cwd=root, shell=is_win)
+        if res.returncode != 0:
+            print(f"\n[ATTENZIONE] '{' '.join(cmd)}' non riuscito: web non aggiornato.")
+            return
+    print(f"[OK] Web pubblicato con versione v{versione}")
+
 def main():
     root = find_project_root()
     if not root:
@@ -149,6 +163,10 @@ def main():
         print(f"\n[OK] APK generato con successo:\n  - {dest}")
     else:
         print("\n[ERRORE] APK non trovato!")
+        pausa_finale()
+        sys.exit(1)
+
+    pubblica_web(root, versione)
 
     pausa_finale()
 

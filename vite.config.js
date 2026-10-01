@@ -1,4 +1,23 @@
 import { defineConfig } from 'vite'
+import { writeFileSync } from 'node:fs'
+
+// Su Vercel la versione mostrata dall'app web e' l'ora del deploy
+// (fuso Europe/Rome), nel formato A.GGG.HHMM. In locale (build APK) resta
+// quella scritta in src/version.js dallo script di build.
+if (process.env.VERCEL) {
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+    }).formatToParts(new Date()).map(x => [x.type, x.value])
+  )
+  const giorno = Math.round(
+    (Date.UTC(+p.year, +p.month - 1, +p.day) - Date.UTC(+p.year, 0, 0)) / 86400000
+  )
+  const versione = `${String(p.year).slice(-1)}.${String(giorno).padStart(3, '0')}.${p.hour}${p.minute}`
+  writeFileSync(new URL('./src/version.js', import.meta.url), `export const APP_VERSION = "${versione}";\n`)
+}
+
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 

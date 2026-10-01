@@ -914,8 +914,8 @@ export default function App() {
                   <div onClick={() => setMesiAperti(p => ({ ...p, [mKey]: !aperto }))} style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', cursor: 'pointer', gap: 8 }}>
                     <div style={{ width: 8, height: 8, borderRadius: '50%', background: theme.accent, flexShrink: 0 }} />
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 900, fontSize: '1.1rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#fff', lineHeight: 1.2 }}>{MESI_NOMI[parseInt(mKey.split('-')[1]) - 1]}</div>
-                      <div style={{ fontWeight: 900, fontSize: '1.1rem', letterSpacing: '0.06em', color: '#fff', lineHeight: 1.2 }}>{mKey.split('-')[0]}</div>
+                      <div style={{ fontWeight: 900, fontSize: '1.1rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: isDark ? '#fff' : '#000', lineHeight: 1.2 }}>{MESI_NOMI[parseInt(mKey.split('-')[1]) - 1]}</div>
+                      <div style={{ fontWeight: 900, fontSize: '1.1rem', letterSpacing: '0.06em', color: isDark ? '#fff' : '#000', lineHeight: 1.2 }}>{mKey.split('-')[0]}</div>
                     </div>
                     <div style={{ textAlign: 'right', marginRight: 8 }}>
                       <div style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: theme.text2, lineHeight: 1.8 }}>{mData.ricariche.length} ric</div>
@@ -924,8 +924,8 @@ export default function App() {
                       <div style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: theme.text2, lineHeight: 1.8 }}>casa</div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: theme.accent, lineHeight: 1.8 }}>€{mData.costoTotale.toFixed(2)}</div>
-                      <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: theme.accent, lineHeight: 1.8 }}>{mData.kwhTotali.toFixed(1)} kWh</div>
+                      <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: isDark ? theme.accent : '#004a6e', lineHeight: 1.8 }}>€{mData.costoTotale.toFixed(2)}</div>
+                      <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: isDark ? theme.accent : '#004a6e', lineHeight: 1.8 }}>{mData.kwhTotali.toFixed(1)} kWh</div>
                       <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: theme.green, lineHeight: 1.8 }}>€{mData.ricariche.filter(r=>(r.luogo||'').toUpperCase()==='CASA').reduce((s,r)=>s+r.costo,0).toFixed(2)}</div>
                       <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: theme.green, lineHeight: 1.8 }}>{mData.ricariche.filter(r=>(r.luogo||'').toUpperCase()==='CASA').reduce((s,r)=>s+(Number(r.kwhEff)||0),0).toFixed(1)} kWh</div>
                     </div>

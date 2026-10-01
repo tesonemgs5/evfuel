@@ -139,6 +139,8 @@ def main():
     update_version_js(root, versione)
     new_code = bump_version_gradle(gradle_path, versione)
 
+    pubblica_web(root, versione)
+
     run_cmd("npm run build", root, "Compilazione bundle web dist/")
     run_cmd("npx cap copy android", root, "Sincronizzazione risorse su Android")
 
@@ -165,8 +167,6 @@ def main():
         print("\n[ERRORE] APK non trovato!")
         pausa_finale()
         sys.exit(1)
-
-    pubblica_web(root, versione)
 
     pausa_finale()
 

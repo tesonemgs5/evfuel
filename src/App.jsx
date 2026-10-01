@@ -1148,6 +1148,16 @@ export default function App() {
               🔄 Aggiorna dati
             </button>
 
+            <button onClick={async () => {
+              try {
+                if ('serviceWorker' in navigator) { const regs = await navigator.serviceWorker.getRegistrations(); await Promise.all(regs.map(r => r.unregister())); }
+                if ('caches' in window) { const nomi = await caches.keys(); await Promise.all(nomi.map(n => caches.delete(n))); }
+              } catch { /* non bloccante */ }
+              window.location.reload();
+            }} style={{ width: '100%', padding: 14, background: 'transparent', border: `1px solid ${theme.border}`, borderRadius: 16, color: theme.text2, cursor: 'pointer', fontWeight: 700, fontSize: '0.9rem' }}>
+              🧹 Svuota cache e ricarica
+            </button>
+
             <div style={{ textAlign: 'center', marginTop: 12, marginBottom: 24, fontSize: '0.75rem', color: theme.text2, fontFamily: 'monospace', letterSpacing: '0.05em' }}>
               Versione v{APP_VERSION}
             </div>

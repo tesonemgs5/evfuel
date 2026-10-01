@@ -110,19 +110,19 @@ def get_version_or_create(root):
     print(f"Creata versione sincronizzata: v{v}")
     return v
 
-def pubblica_web(root, versione):
+def pubblica_web(root):
     is_win = os.name == "nt"
-    print("\n[Eseguo] Pubblicazione web (stessa versione dell'APK)...")
+    print("\n[Eseguo] Commit e push (l'hook scrive la versione con l'ora del commit)...")
     for cmd in (
         ["git", "add", "-A"],
-        ["git", "commit", "-m", f"build v{versione}"],
+        ["git", "commit", "--allow-empty", "-m", "build"],
         ["git", "push"],
     ):
         res = subprocess.run(cmd, cwd=root, shell=is_win)
         if res.returncode != 0:
-            print(f"\n[ATTENZIONE] '{' '.join(cmd)}' non riuscito: web non aggiornato.")
-            return
-    print(f"[OK] Web pubblicato con versione v{versione}")
+            print(f"\nERRORE: '{' '.join(cmd)}' non riuscito. Build interrotta.")
+            pausa_finale()
+            sys.exit(1)
 
 def main():
     root = find_project_root()
@@ -135,11 +135,16 @@ def main():
     setup_java_home(android_dir)
     gradle_path = os.path.join(android_dir, "app", "build.gradle")
 
-    versione = calcola_versione()
-    update_version_js(root, versione)
-    new_code = bump_version_gradle(gradle_path, versione)
+    hook = os.path.join(root, ".git", "hooks", "pre-commit")
+    if not os.path.isfile(hook):
+        print("ERRORE: hook .git/hooks/pre-commit non installato.")
+        pausa_finale()
+        sys.exit(1)
 
-    pubblica_web(root, versione)
+    pubblica_web(root)
+
+    versione = get_version_or_create(root)
+    new_code = bump_version_gradle(gradle_path, versione)
 
     run_cmd("npm run build", root, "Compilazione bundle web dist/")
     run_cmd("npx cap copy android", root, "Sincronizzazione risorse su Android")

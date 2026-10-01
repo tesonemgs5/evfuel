@@ -29,7 +29,12 @@ if (staGirandoInCapacitor) {
     }
   } catch { /* non bloccante */ }
 } else {
-  registerSW({ immediate: true })
+  // Quando il service worker trova una versione nuova, la attiva subito e
+  // ricarica una volta: cosi' la versione non resta bloccata su quella vecchia.
+  const updateSW = registerSW({
+    immediate: true,
+    onNeedRefresh() { updateSW(true) }
+  })
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(

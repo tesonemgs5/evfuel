@@ -57,7 +57,7 @@ function salvaCacheLocale(lista) {
 function leggiCacheLocale() {
   try {
     const raw = localStorage.getItem(LS_RICARICHE);
-    return raw ? ricalcolaKmParziali(JSON.parse(raw)) : null;
+    return raw ? ricalcolaKmParziali(JSON.parse(raw).map(sanitizzaRicarica)) : null;
   } catch { return null; }
 }
 
@@ -132,6 +132,12 @@ const chipSt = (theme) => ({
 function today() { return new Date().toISOString().split('T')[0]; }
 function toNum(x, def = 0) { const n = Number(x); return Number.isFinite(n) ? n : def; }
 
+// kWh da usare nei calcoli: effettivi se inseriti, altrimenti teorici.
+function kwhUsati(r) {
+  if (r && r.kwhEff !== null && r.kwhEff !== undefined) return Number(r.kwhEff) || 0;
+  return Number(r?.kwhTeor) || 0;
+}
+
 function normalizzaData(d) {
   if (!d) return '';
   if (/^\d{4}-\d{2}-\d{2}/.test(String(d))) return String(d).slice(0, 10);
@@ -146,14 +152,18 @@ function sanitizzaRicarica(r) {
   const kwhEffRaw = r?.kwh_eff ?? r?.kwhEff;
   const kwhEff   = (kwhEffRaw === null || kwhEffRaw === undefined || kwhEffRaw === '') ? null : toNum(kwhEffRaw, null);
   const prezzoKwh = toNum(r?.prezzo_kwh ?? r?.prezzoKwh, 0);
-  const costo    = toNum(r?.costo, 0);
+  const kwhTeorV = toNum(r?.kwh_teor ?? r?.kwhTeor, 0);
+  const costoRaw = toNum(r?.costo, 0);
+  // costo = kWh effettivi x prezzo; se i kWh effettivi mancano si usano i teorici
+  const kwhBase  = kwhEff !== null ? kwhEff : kwhTeorV;
+  const costo    = prezzoKwh > 0 ? kwhBase * prezzoKwh : costoRaw;
   const luogo = ((r?.luogo || '').toString().trim().toUpperCase()) || '';
   return {
     id: r?.id || null,
     luogo,
     data: normalizzaData(r?.data),
     kwhEff,
-    kwhTeor: toNum(r?.kwh_teor ?? r?.kwhTeor, 0),
+    kwhTeor: kwhTeorV,
     costo,
     prezzoKwh,
     pctPrima,
@@ -183,8 +193,8 @@ function calcolaKmParzialiReali(lista) {
 // eventuali ricariche intermedie sovrapposte, che restano senza kwh100 proprio).
 // Ricariche che arrivano oltre 80 (es. 90, 100) NON chiudono il blocco: restano "in sospeso"
 // e il loro kWh/km confluiscono nel blocco che si chiuderà alla prossima ricarica esatta all'80%.
-// Ricariche senza kWh effettivi inseriti (kwhEff === null) non vengono mai usate per calcolare
-// un consumo, né proprio né aggregato: il blocco resta "incompleto" finché non si aggiunge il dato.
+// Se i kWh effettivi non sono inseriti si usano i kWh teorici; quando si inseriscono gli
+// effettivi il consumo viene ricalcolato con quelli.
 function applicaLogicaBlocco80(lista) {
   const risultato = lista.map(r => ({ ...r, kwh100: null }));
   let blocco = { kwhTot: 0, kmTot: 0, completo: true, indici: [] };
@@ -192,12 +202,13 @@ function applicaLogicaBlocco80(lista) {
   for (let i = 0; i < risultato.length; i++) {
     const r = risultato[i];
     const km = Number(r.kmParziali) || 0;
-    const haKwh = r.kwhEff !== null && r.kwhEff !== undefined;
+    const kwhR = kwhUsati(r);
+    const haKwh = kwhR > 0;
 
     blocco.kmTot += km;
     blocco.indici.push(i);
     if (haKwh) {
-      blocco.kwhTot += Number(r.kwhEff) || 0;
+      blocco.kwhTot += kwhR;
     } else {
       blocco.completo = false; // manca un dato: il blocco non può dare un consumo affidabile
     }
@@ -232,41 +243,159 @@ function useToast() {
   return { toast, show };
 }
 
-function BarChart({ data, color = '#00e5ff' }) {
-  if (!data.length) return <div style={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: '0.75rem' }}>Nessun dato</div>;
-  const max = Math.max(...data.map(d => d.y));
-  return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 160, padding: '8px 0' }}>
-      {data.map((d, i) => (
-        <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, height: '100%', justifyContent: 'flex-end' }}>
-          <div style={{ width: '100%', background: color + '99', borderRadius: 4, height: max ? `${(d.y / max) * 120}px` : 0, minHeight: d.y ? 4 : 0, transition: 'height 0.4s' }} />
-          <div style={{ fontSize: '0.5rem', color: '#94a3b8', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', maxWidth: '100%' }}>{d.x}</div>
-        </div>
-      ))}
-    </div>
-  );
+function niceScale(min, max, n = 4) {
+  const range = (max - min) || Math.abs(max) || 1;
+  const raw = range / n;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const norm = raw / mag;
+  const stepN = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 2.5 ? 2.5 : norm <= 5 ? 5 : 10;
+  const step = stepN * mag;
+  const lo = Math.floor(min / step) * step;
+  let hi = Math.ceil(max / step) * step;
+  if (hi <= lo) hi = lo + step;
+  const ticks = [];
+  for (let v = lo; v <= hi + step / 1000; v += step) ticks.push(parseFloat(v.toFixed(6)));
+  return { lo, hi: ticks[ticks.length - 1], ticks };
 }
 
-function LineChart({ data, color = '#7c3aed' }) {
-  if (data.length < 2) return <div style={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: '0.75rem' }}>Servono almeno 2 punti</div>;
-  const w = 300, h = 120;
-  const ys = data.map(d => d.y), minY = Math.min(...ys), maxY = Math.max(...ys);
-  const px = i => (i / (data.length - 1)) * w;
-  const py = y => h - ((y - minY) / (maxY - minY || 1)) * (h - 10) - 5;
+// Grafico a linea con asse sinistro a valori fissi, etichette sotto e valore esatto al tocco del pallino.
+// data: [{ label, titolo, y }]
+function ChartLinea({ data, color, theme, formatTick, formatValue, minZero }) {
+  const T = theme || S;
+  const [sel, setSel] = useState(null);
+  if (!data.length) return <div style={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.text2, fontSize: '0.75rem' }}>Nessun dato</div>;
+
+  const W = 320, H = 200, L = 40, R = 18, Tm = 18, B = 28;
+  const pw = W - L - R, ph = H - Tm - B;
+  const ys = data.map(d => d.y);
+  const { lo, hi, ticks } = niceScale(minZero ? 0 : Math.min(...ys), Math.max(...ys));
+  const n = data.length;
+  const px = i => (n === 1 ? L + pw / 2 : L + (i / (n - 1)) * pw);
+  const py = y => Tm + ph - ((y - lo) / (hi - lo || 1)) * ph;
+  const baseY = Tm + ph;
   const pts = data.map((d, i) => `${px(i)},${py(d.y)}`).join(' ');
-  const gradId = `g${color.replace('#', '')}`;
+  const gradId = 'gc' + color.replace(/[^a-z0-9]/gi, '');
+  const every = Math.max(1, Math.ceil((n * 34) / pw));
+  const d = sel !== null ? data[sel] : null;
+
+  let tip = null;
+  if (d) {
+    const riga1 = d.titolo || d.label;
+    const riga2 = formatValue(d.y);
+    const w = Math.max(riga1.length, riga2.length) * 5.4 + 14;
+    const h = 28;
+    const bx = Math.min(Math.max(px(sel) - w / 2, 2), W - w - 2);
+    let by = py(d.y) - h - 8;
+    if (by < 0) by = py(d.y) + 10;
+    tip = (
+      <g style={{ pointerEvents: 'none' }}>
+        <rect x={bx} y={by} width={w} height={h} rx="6" fill={T.bg} stroke={color} strokeWidth="1" />
+        <text x={bx + w / 2} y={by + 11} textAnchor="middle" fontSize="7.5" fill={T.text2}>{riga1}</text>
+        <text x={bx + w / 2} y={by + 23} textAnchor="middle" fontSize="9" fontWeight="700" fill={T.text}>{riga2}</text>
+      </g>
+    );
+  }
+
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height: 160 }}>
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', overflow: 'visible' }}>
       <defs>
         <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.3" />
           <stop offset="100%" stopColor={color} stopOpacity="0" />
         </linearGradient>
       </defs>
-      <polygon points={`0,${h} ${pts} ${w},${h}`} fill={`url(#${gradId})`} />
-      <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" />
-      {data.map((d, i) => <circle key={i} cx={px(i)} cy={py(d.y)} r="3" fill={color} />)}
+      {ticks.map(t => (
+        <g key={t}>
+          <line x1={L} x2={W - R} y1={py(t)} y2={py(t)} stroke={T.border} strokeWidth="0.6" strokeDasharray="2 3" />
+          <text x={L - 5} y={py(t) + 3} textAnchor="end" fontSize="8" fill={T.text2}>{formatTick(t)}</text>
+        </g>
+      ))}
+      {n > 1 && <polygon points={`${px(0)},${baseY} ${pts} ${px(n - 1)},${baseY}`} fill={`url(#${gradId})`} />}
+      {n > 1 && <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" />}
+      {sel !== null && <line x1={px(sel)} x2={px(sel)} y1={Tm} y2={baseY} stroke={color} strokeWidth="0.8" strokeDasharray="3 3" />}
+      {data.map((p, i) => (
+        <g key={i}>
+          <circle cx={px(i)} cy={py(p.y)} r={sel === i ? 5 : 3.5} fill={color} />
+          <circle cx={px(i)} cy={py(p.y)} r="14" fill="transparent" style={{ cursor: 'pointer' }} onClick={() => setSel(sel === i ? null : i)} />
+          {(n - 1 - i) % every === 0 && (
+            <text x={px(i)} y={H - 8} textAnchor="middle" fontSize="8" fill={sel === i ? T.text : T.text2}>{p.label}</text>
+          )}
+        </g>
+      ))}
+      {tip}
     </svg>
+  );
+}
+
+function fmtLocal(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function fmtIt(s) { return s ? s.slice(8, 10) + '/' + s.slice(5, 7) + '/' + s.slice(0, 4) : '…'; }
+
+// Riepilogo con selezione del periodo.
+function RiepilogoPeriodo({ ricariche, theme }) {
+  const T = theme || S;
+  const [per, setPer] = useState('tutto');
+  const [dal, setDal] = useState('');
+  const [al, setAl] = useState('');
+  const oggi = new Date();
+  let da = '', a = '';
+  if (per === 'mese') da = fmtLocal(new Date(oggi.getFullYear(), oggi.getMonth(), 1));
+  else if (per === '3mesi') da = fmtLocal(new Date(oggi.getFullYear(), oggi.getMonth() - 3, oggi.getDate()));
+  else if (per === 'anno') da = oggi.getFullYear() + '-01-01';
+  else if (per === 'custom') { da = dal; a = al; }
+
+  const filtrate = ricariche.filter(r => r.data && (!da || r.data >= da) && (!a || r.data <= a));
+  const tot = filtrate.reduce((acc, r) => {
+    acc.costo += Number(r.costo) || 0;
+    acc.kwh += kwhUsati(r);
+    acc.km += Number(r.kmParziali) || 0;
+    return acc;
+  }, { costo: 0, kwh: 0, km: 0 });
+
+  const opzioni = [['tutto', 'Tutto'], ['mese', 'Mese'], ['3mesi', '3 mesi'], ['anno', 'Anno'], ['custom', 'Periodo']];
+  const etichetta = per === 'tutto' ? 'Tutto lo storico' : `${fmtIt(da)} – ${fmtIt(a || fmtLocal(oggi))}`;
+  const dateSt = { ...inputSt(T), fontSize: '0.8rem', padding: '8px 10px' };
+
+  return (
+    <div style={{ background: T.bg2, border: `1px solid ${T.border}`, borderRadius: 16, padding: 16 }}>
+      <div style={{ fontSize: '0.65rem', color: T.text2, marginBottom: 10, textTransform: 'uppercase' }}>Riepilogo</div>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+        {opzioni.map(([id, nome]) => (
+          <button key={id} onClick={() => setPer(id)} style={{
+            ...chipSt(T),
+            background: per === id ? T.accent : 'rgba(0,229,255,0.08)',
+            color: per === id ? T.bg : T.accent,
+            fontWeight: per === id ? 800 : 400, cursor: 'pointer'
+          }}>{nome}</button>
+        ))}
+      </div>
+      {per === 'custom' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+          <div>
+            <label style={{ fontSize: '0.6rem', color: T.text2 }}>Dal</label>
+            <input type="date" value={dal} onChange={e => setDal(e.target.value)} style={dateSt} />
+          </div>
+          <div>
+            <label style={{ fontSize: '0.6rem', color: T.text2 }}>Al</label>
+            <input type="date" value={al} onChange={e => setAl(e.target.value)} style={dateSt} />
+          </div>
+        </div>
+      )}
+      <div style={{ fontSize: '0.65rem', color: T.text2, marginBottom: 10 }}>{etichetta} · {filtrate.length} ricariche</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '1.2rem', fontWeight: 800, color: T.green, fontFamily: 'monospace' }}>€{tot.costo.toFixed(0)}</div>
+          <div style={{ fontSize: '0.6rem', color: T.text2 }}>Spesa totale</div>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '1.2rem', fontWeight: 800, color: T.accent, fontFamily: 'monospace' }}>{tot.kwh.toFixed(0)}</div>
+          <div style={{ fontSize: '0.6rem', color: T.text2 }}>kWh totali</div>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '1.2rem', fontWeight: 800, color: T.accent2, fontFamily: 'monospace' }}>{tot.km.toFixed(0)}</div>
+          <div style={{ fontSize: '0.6rem', color: T.text2 }}>KM totali</div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -311,7 +440,8 @@ function FormRicarica({ settings, ricariche, editIdx, onSave, onCancel, showToas
   const kwhEffInserito = fKwh !== '' && !isNaN(parseFloat(fKwh));
   const kwhEff   = kwhEffInserito ? parseFloat(fKwh) : null;
   const prezzo   = parseFloat(fPrezzo) || settings.prezzo;
-  const costo    = kwhEff !== null ? kwhEff * prezzo : null;
+  const kwhBase  = kwhEff !== null ? kwhEff : kwhTeor;
+  const costo    = kwhBase > 0 ? kwhBase * prezzo : null;
   const kmParzN  = parseFloat(fKmParz);
   const kmN      = parseFloat(fKm);
 
@@ -322,7 +452,7 @@ function FormRicarica({ settings, ricariche, editIdx, onSave, onCancel, showToas
     if (prev) kmParzAuto = kmN - prev.km;
   }
   const kmParzEff = (kmParzN > 0) ? kmParzN : kmParzAuto;
-  const kwh100 = (kmParzEff && kwhEff !== null) ? (kwhEff / kmParzEff) * 100 : null;
+  const kwh100 = (kmParzEff && kwhBase > 0) ? (kwhBase / kmParzEff) * 100 : null;
 
   function salva() {
     if (!fData || prima <= 0 || dopo <= 0) { showToast('⚠️ Compila data e %', '#f59e0b'); return; }
@@ -399,7 +529,7 @@ function FormRicarica({ settings, ricariche, editIdx, onSave, onCancel, showToas
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <label style={{ fontSize: '0.62rem', textTransform: 'uppercase', color: T.text2 }}>kWh effettivi</label>
           <input type="number" value={fKwh} onChange={e => setFKwh(e.target.value)} placeholder="inserisci valore reale" step="0.01" style={inputSt(T)} />
-          {!kwhEffInserito && <div style={{ fontSize: '0.6rem', color: '#f59e0b', marginTop: 2 }}>⚠️ vuoto: nessun costo/consumo calcolato</div>}
+          {!kwhEffInserito && <div style={{ fontSize: '0.6rem', color: '#f59e0b', marginTop: 2 }}>⚠️ vuoto: costo e consumo calcolati sui kWh teorici</div>}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <label style={{ fontSize: '0.62rem', textTransform: 'uppercase', color: T.text2 }}>kWh / 100km</label>
@@ -632,7 +762,7 @@ export default function App() {
       kwh_eff: record.kwhEff,
       kwh_teor: record.kwhTeor,
       prezzo_kwh: record.prezzoKwh,
-      costo: record.kwhEff !== null && record.kwhEff !== undefined ? (record.costo || record.kwhEff * record.prezzoKwh) : null,
+      costo: record.costo ?? (((record.kwhEff ?? record.kwhTeor) || 0) * record.prezzoKwh),
       kwh_100: record.kwh100,
     };
     const isNuova = !record.id;
@@ -828,7 +958,7 @@ export default function App() {
 
   const totali = ricariche.reduce((acc, r) => {
     acc.costo += Number(r.costo) || 0;
-    acc.kwh   += Number(r.kwhEff) || 0;
+    acc.kwh   += kwhUsati(r);
     acc.km    += Number(r.kmParziali) || 0;
     return acc;
   }, { costo: 0, kwh: 0, km: 0 });
@@ -841,13 +971,20 @@ export default function App() {
     const mKey = r.data.slice(0, 7);
     if (!raggruppatoPerMese[mKey]) raggruppatoPerMese[mKey] = { ricariche: [], kwhTotali: 0, costoTotale: 0, kmTotali: 0 };
     raggruppatoPerMese[mKey].ricariche.push(r);
-    raggruppatoPerMese[mKey].ricariche.sort((a,b) => (b.km||0) - (a.km||0));    raggruppatoPerMese[mKey].kwhTotali   += Number(r.kwhEff) || 0;
+    raggruppatoPerMese[mKey].ricariche.sort((a,b) => (b.km||0) - (a.km||0));    raggruppatoPerMese[mKey].kwhTotali   += kwhUsati(r);
     raggruppatoPerMese[mKey].costoTotale += Number(r.costo) || 0;
     raggruppatoPerMese[mKey].kmTotali    += Number(r.kmParziali) || 0;
   });
 
-  const graficiMesi    = Object.keys(raggruppatoPerMese).sort().slice(-6).map(m => ({ x: MESI_BREVI[parseInt(m.split('-')[1]) - 1], y: raggruppatoPerMese[m].costoTotale }));
-  const graficiConsumi = ricariche.filter(r => r.kwh100 > 0).slice(-10).map((r, i) => ({ x: i + 1, y: r.kwh100 }));
+  const graficiMesi = Object.keys(raggruppatoPerMese).sort().slice(-6).map(m => {
+    const [anno, mm] = m.split('-');
+    return { label: MESI_BREVI[parseInt(mm) - 1] + ' ' + anno, titolo: MESI_NOMI[parseInt(mm) - 1] + ' ' + anno, y: raggruppatoPerMese[m].costoTotale };
+  });
+  const graficiConsumi = ricariche.filter(r => r.kwh100 > 0).slice(-10).map(r => ({
+    label: r.data.slice(8, 10) + '/' + r.data.slice(5, 7),
+    titolo: r.data.slice(8, 10) + '/' + r.data.slice(5, 7) + '/' + r.data.slice(0, 4),
+    y: r.kwh100
+  }));
 
   const toggleSec = (key) => setOpenSec(p => ({ ...p, [key]: !p[key] }));
 
@@ -927,7 +1064,7 @@ export default function App() {
                       <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: isDark ? theme.accent : '#004a6e', lineHeight: 1.8 }}>€{mData.costoTotale.toFixed(2)}</div>
                       <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: isDark ? theme.accent : '#004a6e', lineHeight: 1.8 }}>{mData.kwhTotali.toFixed(1)} kWh</div>
                       <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: theme.green, lineHeight: 1.8 }}>€{mData.ricariche.filter(r=>(r.luogo||'').toUpperCase()==='CASA').reduce((s,r)=>s+r.costo,0).toFixed(2)}</div>
-                      <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: theme.green, lineHeight: 1.8 }}>{mData.ricariche.filter(r=>(r.luogo||'').toUpperCase()==='CASA').reduce((s,r)=>s+(Number(r.kwhEff)||0),0).toFixed(1)} kWh</div>
+                      <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: theme.green, lineHeight: 1.8 }}>{mData.ricariche.filter(r=>(r.luogo||'').toUpperCase()==='CASA').reduce((s,r)=>s+kwhUsati(r),0).toFixed(1)} kWh</div>
                     </div>
                   </div>
                   {aperto && (
@@ -975,29 +1112,13 @@ export default function App() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 16, padding: 16 }}>
               <div style={{ fontSize: '0.65rem', color: theme.text2, marginBottom: 12, textTransform: 'uppercase' }}>Spesa Mensile (€)</div>
-              <BarChart data={graficiMesi} color={theme.green} />
+              <ChartLinea data={graficiMesi} color={theme.green} theme={theme} minZero formatTick={v => '€' + parseFloat(v.toFixed(2))} formatValue={v => '€ ' + v.toFixed(2)} />
             </div>
             <div style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 16, padding: 16 }}>
               <div style={{ fontSize: '0.65rem', color: theme.text2, marginBottom: 12, textTransform: 'uppercase' }}>Andamento Consumi (kWh/100km)</div>
-              <LineChart data={graficiConsumi} color={theme.accent} />
+              <ChartLinea data={graficiConsumi} color={theme.accent} theme={theme} formatTick={v => String(parseFloat(v.toFixed(2)))} formatValue={v => v.toFixed(2) + ' kWh/100km'} />
             </div>
-            <div style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 16, padding: 16 }}>
-              <div style={{ fontSize: '0.65rem', color: theme.text2, marginBottom: 8, textTransform: 'uppercase' }}>Riepilogo Totale</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '1.2rem', fontWeight: 800, color: theme.green, fontFamily: 'monospace' }}>€{totali.costo.toFixed(0)}</div>
-                  <div style={{ fontSize: '0.6rem', color: theme.text2 }}>Spesa totale</div>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '1.2rem', fontWeight: 800, color: theme.accent, fontFamily: 'monospace' }}>{totali.kwh.toFixed(0)}</div>
-                  <div style={{ fontSize: '0.6rem', color: theme.text2 }}>kWh totali</div>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '1.2rem', fontWeight: 800, color: theme.accent2, fontFamily: 'monospace' }}>{totali.km.toFixed(0)}</div>
-                  <div style={{ fontSize: '0.6rem', color: theme.text2 }}>KM totali</div>
-                </div>
-              </div>
-            </div>
+            <RiepilogoPeriodo ricariche={ricariche} theme={theme} />
           </div>
         )}
 

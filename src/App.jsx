@@ -98,7 +98,7 @@ const SHEETS_URL = "https://script.google.com/macros/s/AKfycbwE6U_h_lUBuNOOGedHx
 const MESI_NOMI = ['GENNAIO','FEBBRAIO','MARZO','APRILE','MAGGIO','GIUGNO','LUGLIO','AGOSTO','SETTEMBRE','OTTOBRE','NOVEMBRE','DICEMBRE'];
 const MESI_BREVI = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
 
-const DEFAULT_SETTINGS = { batteria: 64, prezzo: 0.50, targa: 'MGS5', p1a: 20, p1b: 30, p2a: 80, p2b: 100 };
+const DEFAULT_SETTINGS = { batteria: 64, prezzo: 0.20, luogo: 'CASA', targa: 'MGS5', p1a: 20, p1b: 30, p2a: 80, p2b: 100 };
 
 const THEMES = {
   dark: {
@@ -130,6 +130,81 @@ const chipSt = (theme) => ({
 
 
 function today() { return new Date().toISOString().split('T')[0]; }
+// ---- formato italiano: punto = migliaia, virgola = decimali ----
+function fmtN(v, max = 2, min = max) {
+  if (v === null || v === undefined || v === '') return '—';
+  const n = Number(v);
+  if (!Number.isFinite(n)) return '—';
+  let t = Math.abs(n).toFixed(max);
+  if (max > min && t.includes('.')) {
+    let [i, d] = t.split('.');
+    while (d.length > min && d.endsWith('0')) d = d.slice(0, -1);
+    t = d.length ? i + '.' + d : i;
+  }
+  const [i, d] = t.split('.');
+  const g = i.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const neg = n < 0 && Number(t) !== 0;
+  return (neg ? '-' : '') + g + (d ? ',' + d : '');
+}
+// testo digitato (es. "1.234,5") -> numero (NaN se vuoto)
+function parseIt(s) {
+  if (s === null || s === undefined || s === '') return NaN;
+  return parseFloat(String(s).replace(/\./g, '').replace(',', '.'));
+}
+function groupInt(i) { return i.replace(/^0+(?=\d)/, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+// numero -> testo per i campi di input
+function toInputStr(v, group = false) {
+  if (v === null || v === undefined || v === '' || !Number.isFinite(Number(v))) return '';
+  const [i, d] = String(Number(v)).split('.');
+  return (group ? groupInt(i) : i) + (d ? ',' + d : '');
+}
+
+// Campo numerico: il punto diventa virgola, le migliaia (se group) si mettono da sole.
+function NumInput({ value, onChange, decimals = true, group = false, style, placeholder }) {
+  const ref = useRef(null);
+  const caretRef = useRef(null);
+  useEffect(() => {
+    if (caretRef.current !== null && ref.current && document.activeElement === ref.current) {
+      try { ref.current.setSelectionRange(caretRef.current, caretRef.current); } catch (_) {}
+    }
+    caretRef.current = null;
+  });
+  const handle = (e) => {
+    const el = e.target;
+    let r = el.value;
+    let c = el.selectionStart ?? r.length;
+    const typed = e.nativeEvent && e.nativeEvent.data;
+    if (decimals) {
+      if (!group) r = r.replace(/\./g, ',');
+      else if (typed === '.' && c > 0 && r[c - 1] === '.') r = r.slice(0, c - 1) + ',' + r.slice(c);
+    }
+    // quanti caratteri "veri" (cifre e virgola) stanno prima del cursore
+    const keepCh = ch => /\d/.test(ch) || (decimals && ch === ',');
+    let k = 0;
+    for (let i = 0; i < Math.min(c, r.length); i++) if (keepCh(r[i])) k++;
+    let clean = '', seenComma = false;
+    for (const ch of r) {
+      if (/\d/.test(ch)) clean += ch;
+      else if (decimals && ch === ',' && !seenComma) { clean += ch; seenComma = true; }
+    }
+    let [i, d] = clean.split(',');
+    const out = (group ? groupInt(i) : i) + (clean.includes(',') ? ',' + (d || '') : '');
+    // posizione del cursore nel testo formattato
+    let pos = 0, cnt = 0;
+    while (pos < out.length && cnt < k) { if (keepCh(out[pos])) cnt++; pos++; }
+    caretRef.current = pos;
+    onChange(out);
+  };
+  return <input ref={ref} type="text" inputMode={decimals ? 'decimal' : 'numeric'} autoComplete="off" value={value} onChange={handle} placeholder={placeholder} style={style} />;
+}
+// versione per i valori numerici delle impostazioni
+function SetNum({ value, onValue, decimals = true, group = false, style }) {
+  const [t, setT] = useState(toInputStr(value, group));
+  useEffect(() => { if (parseIt(t) !== Number(value)) setT(toInputStr(value, group)); /* eslint-disable-next-line */ }, [value]);
+  return <NumInput value={t} decimals={decimals} group={group} style={style}
+    onChange={(x) => { setT(x); const n = parseIt(x); if (!isNaN(n)) onValue(n); }} />;
+}
+
 function toNum(x, def = 0) { const n = Number(x); return Number.isFinite(n) ? n : def; }
 
 // kWh da usare nei calcoli: effettivi se inseriti, altrimenti teorici.
@@ -540,15 +615,15 @@ function RiepilogoPeriodo({ ricariche, theme }) {
       <div style={{ fontSize: '0.65rem', color: T.text2, marginBottom: 10 }}>{etichetta} · {filtrate.length} ricariche</div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '1.2rem', fontWeight: 800, color: T.green, fontFamily: 'monospace' }}>€{tot.costo.toFixed(0)}</div>
+          <div style={{ fontSize: '1.2rem', fontWeight: 800, color: T.green, fontFamily: 'monospace' }}>€{fmtN(tot.costo, 0)}</div>
           <div style={{ fontSize: '0.6rem', color: T.text2 }}>Spesa totale</div>
         </div>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '1.2rem', fontWeight: 800, color: T.accent, fontFamily: 'monospace' }}>{tot.kwh.toFixed(0)}</div>
+          <div style={{ fontSize: '1.2rem', fontWeight: 800, color: T.accent, fontFamily: 'monospace' }}>{fmtN(tot.kwh, 0)}</div>
           <div style={{ fontSize: '0.6rem', color: T.text2 }}>kWh totali</div>
         </div>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '1.2rem', fontWeight: 800, color: T.accent2, fontFamily: 'monospace' }}>{tot.km.toFixed(0)}</div>
+          <div style={{ fontSize: '1.2rem', fontWeight: 800, color: T.accent2, fontFamily: 'monospace' }}>{fmtN(tot.km, 0)}</div>
           <div style={{ fontSize: '0.6rem', color: T.text2 }}>KM totali</div>
         </div>
       </div>
@@ -577,30 +652,25 @@ function FormRicarica({ settings, ricariche, editIdx, onSave, onCancel, showToas
   const T = theme || S;
   const ex = editIdx !== null ? ricariche[editIdx] : null;
   const [fData,   setFData]   = useState(ex ? ex.data : today());
-  const [fLuogo,  setFLuogo]  = useState(ex ? (ex.luogo || '') : '');
-  const [fKm,     setFKm]     = useState(ex && ex.km !== null ? String(ex.km) : '');
-  const [fKmParz, setFKmParz] = useState(ex && ex.kmParziali !== null ? String(ex.kmParziali) : '');
-  const [fPrima,  setFPrima]  = useState(ex ? String(ex.pctPrima > 1 ? ex.pctPrima : ex.pctPrima * 100) : '');
-  const [fDopo,   setFDopo]   = useState(ex ? String(ex.pctDopo > 1 ? ex.pctDopo : ex.pctDopo * 100) : '');
-  const [fKwh,    setFKwh]    = useState(ex && ex.kwhEff !== null && ex.kwhEff !== undefined ? String(ex.kwhEff) : '');
-  const [fPrezzo, setFPrezzo] = useState(ex ? String(ex.prezzoKwh) : String(settings.prezzo));
+  const [fLuogo,  setFLuogo]  = useState(ex ? (ex.luogo || '') : (settings.luogo || ''));
+  const [fKm,     setFKm]     = useState(ex && ex.km !== null ? toInputStr(ex.km, true) : '');
+  const [fKmParz, setFKmParz] = useState(ex && ex.kmParziali !== null ? toInputStr(ex.kmParziali, true) : '');
+  const [fPrima,  setFPrima]  = useState(ex ? toInputStr(ex.pctPrima > 1 ? ex.pctPrima : ex.pctPrima * 100) : '');
+  const [fDopo,   setFDopo]   = useState(ex ? toInputStr(ex.pctDopo > 1 ? ex.pctDopo : ex.pctDopo * 100) : '');
+  const [fKwh,    setFKwh]    = useState(ex && ex.kwhEff !== null && ex.kwhEff !== undefined ? toInputStr(ex.kwhEff) : '');
+  const [fPrezzo, setFPrezzo] = useState(ex ? toInputStr(ex.prezzoKwh) : toInputStr(settings.prezzo));
 
-  useEffect(() => {
-    const v = parseFloat(fPrezzo);
-    if (Math.abs(v - 0.2) < 0.001 && fLuogo !== 'CASA') setFLuogo('CASA');
-  }, [fPrezzo]);
-
-  const prima = parseFloat(fPrima) || 0;
-  const dopo  = parseFloat(fDopo)  || 0;
+  const prima = parseIt(fPrima) || 0;
+  const dopo  = parseIt(fDopo)  || 0;
   const diff  = dopo - prima;
   const kwhTeor  = settings.batteria * (diff / 100);
-  const kwhEffInserito = fKwh !== '' && !isNaN(parseFloat(fKwh));
-  const kwhEff   = kwhEffInserito ? parseFloat(fKwh) : null;
-  const prezzo   = parseFloat(fPrezzo) || settings.prezzo;
+  const kwhEffInserito = fKwh !== '' && !isNaN(parseIt(fKwh));
+  const kwhEff   = kwhEffInserito ? parseIt(fKwh) : null;
+  const prezzo   = parseIt(fPrezzo) || settings.prezzo;
   const kwhBase  = kwhEff !== null ? kwhEff : kwhTeor;
   const costo    = kwhBase > 0 ? kwhBase * prezzo : null;
-  const kmParzN  = parseFloat(fKmParz);
-  const kmN      = parseFloat(fKm);
+  const kmParzN  = parseIt(fKmParz);
+  const kmN      = parseIt(fKm);
 
   let kmParzAuto = null;
   if (!isNaN(kmN) && kmN > 0 && !(kmParzN > 0)) {
@@ -616,7 +686,7 @@ function FormRicarica({ settings, ricariche, editIdx, onSave, onCancel, showToas
     if (dopo <= prima) { showToast('⚠️ % dopo > % prima', '#f59e0b'); return; }
     onSave({
       id: ex?.id || null,
-      data: fData, luogo: fLuogo || null, km: parseFloat(fKm) || null,
+      data: fData, luogo: fLuogo || null, km: parseIt(fKm) || null,
       pctPrima: prima, pctDopo: dopo, kwhEff, kwhTeor, prezzoKwh: prezzo, costo,
       kmParziali: kmParzEff || null, kwh100
     });
@@ -638,60 +708,60 @@ function FormRicarica({ settings, ricariche, editIdx, onSave, onCancel, showToas
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <label style={{ fontSize: '0.62rem', textTransform: 'uppercase', color: T.text2 }}>KM Totali</label>
-          <input type="number" value={fKm} onChange={e => setFKm(e.target.value)} placeholder="0" style={inputSt(T)} />
+          <NumInput value={fKm} onChange={setFKm} group decimals={false} placeholder="0" style={inputSt(T)} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <label style={{ fontSize: '0.62rem', textTransform: 'uppercase', color: T.text2 }}>KM Parziali</label>
-          <input type="number" value={fKmParz} onChange={e => setFKmParz(e.target.value)} placeholder={kmParzAuto ? String(kmParzAuto) : ''} style={inputSt(T)} />
+          <NumInput value={fKmParz} onChange={setFKmParz} group placeholder={kmParzAuto ? fmtN(kmParzAuto, 1, 0) : ''} style={inputSt(T)} />
           {kmParzAuto && !(kmParzN > 0) && <div style={{ fontSize: '0.6rem', color: T.accent, marginTop: 2 }}>⚡ calcolato automaticamente</div>}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <label style={{ fontSize: '0.62rem', textTransform: 'uppercase', color: T.text2 }}>% Prima</label>
-          <input type="number" value={fPrima} onChange={e => setFPrima(e.target.value)} placeholder="0" style={inputSt(T)} />
+          <NumInput value={fPrima} onChange={setFPrima} placeholder="0" style={inputSt(T)} />
           <div style={{ display: 'flex', gap: 6 }}>
-            {[settings.p1a, settings.p1b].map(v => <button key={v} onClick={() => setFPrima(String(v))} style={chipSt(T)}>{v}%</button>)}
+            {[settings.p1a, settings.p1b].map(v => <button key={v} onClick={() => setFPrima(toInputStr(v))} style={chipSt(T)}>{v}%</button>)}
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <label style={{ fontSize: '0.62rem', textTransform: 'uppercase', color: T.text2 }}>% Dopo</label>
-          <input type="number" value={fDopo} onChange={e => setFDopo(e.target.value)} placeholder="100" style={inputSt(T)} />
+          <NumInput value={fDopo} onChange={setFDopo} placeholder="100" style={inputSt(T)} />
           <div style={{ display: 'flex', gap: 6 }}>
-            {[settings.p2a, settings.p2b].map(v => <button key={v} onClick={() => setFDopo(String(v))} style={chipSt(T)}>{v}%</button>)}
+            {[settings.p2a, settings.p2b].map(v => <button key={v} onClick={() => setFDopo(toInputStr(v))} style={chipSt(T)}>{v}%</button>)}
           </div>
         </div>
         <div style={{ gridColumn: '1/-1', background: 'rgba(0,229,255,0.04)', border: `1px solid ${T.border}`, borderRadius: 10, padding: 10, display: 'flex', justifyContent: 'space-between' }}>
           <div>
             <div style={{ fontSize: '0.65rem', color: T.text2, textTransform: 'uppercase' }}>Differenza %</div>
-            <div style={{ fontFamily: 'monospace', fontSize: '1rem', color: T.accent }}>{diff > 0 ? diff.toFixed(0) + ' %' : '—'}</div>
+            <div style={{ fontFamily: 'monospace', fontSize: '1rem', color: T.accent }}>{diff > 0 ? fmtN(diff, 0) + ' %' : '—'}</div>
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '0.65rem', color: T.text2, textTransform: 'uppercase' }}>kWh teorici</div>
-            <div style={{ fontFamily: 'monospace', fontSize: '1rem', color: T.accent }}>{kwhTeor > 0 ? kwhTeor.toFixed(2) + ' kWh' : '—'}</div>
+            <div style={{ fontFamily: 'monospace', fontSize: '1rem', color: T.accent }}>{kwhTeor > 0 ? fmtN(kwhTeor, 2) + ' kWh' : '—'}</div>
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <label style={{ fontSize: '0.62rem', textTransform: 'uppercase', color: T.text2 }}>Prezzo €/kWh</label>
-          <input type="number" value={fPrezzo} onChange={e => setFPrezzo(e.target.value)} step="0.001" style={inputSt(T)} />
+          <NumInput value={fPrezzo} onChange={setFPrezzo} style={inputSt(T)} />
           <div style={{ display: 'flex', gap: 6 }}>
-            <button onClick={() => { setFPrezzo('0.2'); setFLuogo('CASA'); }} style={chipSt(T)}>€0.20</button>
-            <button onClick={() => setFPrezzo('0.5')} style={chipSt(T)}>€0.50</button>
+            <button onClick={() => { setFPrezzo(toInputStr(settings.prezzo)); setFLuogo(settings.luogo || ''); }} style={chipSt(T)}>€{fmtN(settings.prezzo, 3, 2)}</button>
+            <button onClick={() => setFPrezzo('0,5')} style={chipSt(T)}>€0,50</button>
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <label style={{ fontSize: '0.62rem', textTransform: 'uppercase', color: T.text2 }}>Costo €</label>
           <div style={{ fontFamily: 'monospace', fontSize: '1.2rem', color: T.green, padding: '10px 12px', background: 'rgba(255,255,255,0.06)', border: `1px solid ${T.border}`, borderRadius: 10 }}>
-            {costo > 0 ? '€ ' + costo.toFixed(2) : '—'}
+            {costo > 0 ? '€ ' + fmtN(costo, 2) : '—'}
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <label style={{ fontSize: '0.62rem', textTransform: 'uppercase', color: T.text2 }}>kWh effettivi</label>
-          <input type="number" value={fKwh} onChange={e => setFKwh(e.target.value)} placeholder="inserisci valore reale" step="0.01" style={inputSt(T)} />
+          <NumInput value={fKwh} onChange={setFKwh} placeholder="inserisci valore reale" style={inputSt(T)} />
           {!kwhEffInserito && <div style={{ fontSize: '0.6rem', color: '#f59e0b', marginTop: 2 }}>⚠️ vuoto: costo e consumo calcolati sui kWh teorici</div>}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <label style={{ fontSize: '0.62rem', textTransform: 'uppercase', color: T.text2 }}>kWh / 100km</label>
           <div style={{ fontFamily: 'monospace', fontSize: '1.2rem', color: T.accent2, padding: '10px 12px', background: 'rgba(255,255,255,0.06)', border: `1px solid ${T.border}`, borderRadius: 10 }}>
-            {kwh100 ? kwh100.toFixed(2) : '—'}
+            {kwh100 ? fmtN(kwh100, 2) : '—'}
           </div>
         </div>
       </div>
@@ -723,7 +793,15 @@ export default function App() {
   const [ricariche,  setRicariche]  = useState(() => leggiCacheLocale() || []);
   const [loading,    setLoading]    = useState(() => !localStorage.getItem(LS_RICARICHE));
   const [settings,   setSettings]   = useState(() => {
-    try { const s = localStorage.getItem('mgs5_settings'); return s ? { ...DEFAULT_SETTINGS, ...JSON.parse(s) } : { ...DEFAULT_SETTINGS }; } catch { return { ...DEFAULT_SETTINGS }; }
+    try {
+      const raw = localStorage.getItem('mgs5_settings');
+      if (!raw) return { ...DEFAULT_SETTINGS };
+      const o = JSON.parse(raw);
+      const m = { ...DEFAULT_SETTINGS, ...o };
+      // impostazioni salvate prima dell'introduzione del luogo predefinito: parte da CASA a 0,20
+      if (!('luogo' in o)) { m.luogo = 'CASA'; m.prezzo = 0.20; }
+      return m;
+    } catch { return { ...DEFAULT_SETTINGS }; }
   });
   const [editIdx,    setEditIdx]    = useState(null);
   const [confirmIdx, setConfirmIdx] = useState(null);
@@ -1184,12 +1262,12 @@ export default function App() {
           )}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 16px', textAlign: 'right' }}>
-          <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: supabaseOffline ? '#fff' : theme.accent }}>{totali.km > 0 ? totali.km.toLocaleString('it') : '—'}</div>
-          <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: supabaseOffline ? '#fff' : theme.accent }}>€{totali.costo.toFixed(2)}</div>
+          <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: supabaseOffline ? '#fff' : theme.accent }}>{totali.km > 0 ? fmtN(totali.km, 0) : '—'}</div>
+          <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: supabaseOffline ? '#fff' : theme.accent }}>€{fmtN(totali.costo, 2)}</div>
           <div style={{ fontSize: '0.55rem', color: supabaseOffline ? 'rgba(255,255,255,0.8)' : theme.text2, textTransform: 'uppercase' }}>KM TOTALI</div>
           <div style={{ fontSize: '0.55rem', color: supabaseOffline ? 'rgba(255,255,255,0.8)' : theme.text2, textTransform: 'uppercase' }}>COSTO TOT.</div>
-          <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: supabaseOffline ? '#fff' : theme.accent }}>{totali.kwh.toFixed(1)}</div>
-          <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: supabaseOffline ? '#fff' : theme.accent }}>{mediaKwh100 ? mediaKwh100.toFixed(2) : '—'}</div>
+          <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: supabaseOffline ? '#fff' : theme.accent }}>{fmtN(totali.kwh, 1)}</div>
+          <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: supabaseOffline ? '#fff' : theme.accent }}>{mediaKwh100 ? fmtN(mediaKwh100, 2) : '—'}</div>
           <div style={{ fontSize: '0.55rem', color: supabaseOffline ? 'rgba(255,255,255,0.8)' : theme.text2, textTransform: 'uppercase' }}>KWH TOTALI</div>
           <div style={{ fontSize: '0.55rem', color: supabaseOffline ? 'rgba(255,255,255,0.8)' : theme.text2, textTransform: 'uppercase' }}>MEDIA /100KM</div>
         </div>
@@ -1230,10 +1308,10 @@ export default function App() {
                       <div style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: theme.text2, lineHeight: 1.8 }}>casa</div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: isDark ? theme.accent : '#004a6e', lineHeight: 1.8 }}>€{mData.costoTotale.toFixed(2)}</div>
-                      <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: isDark ? theme.accent : '#004a6e', lineHeight: 1.8 }}>{mData.kwhTotali.toFixed(1)} kWh</div>
-                      <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: theme.green, lineHeight: 1.8 }}>€{mData.ricariche.filter(r=>(r.luogo||'').toUpperCase()==='CASA').reduce((s,r)=>s+r.costo,0).toFixed(2)}</div>
-                      <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: theme.green, lineHeight: 1.8 }}>{mData.ricariche.filter(r=>(r.luogo||'').toUpperCase()==='CASA').reduce((s,r)=>s+kwhUsati(r),0).toFixed(1)} kWh</div>
+                      <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: isDark ? theme.accent : '#004a6e', lineHeight: 1.8 }}>€{fmtN(mData.costoTotale, 2)}</div>
+                      <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: isDark ? theme.accent : '#004a6e', lineHeight: 1.8 }}>{fmtN(mData.kwhTotali, 1)} kWh</div>
+                      <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: theme.green, lineHeight: 1.8 }}>€{fmtN(mData.ricariche.filter(r=>(r.luogo||'').toUpperCase()==='CASA').reduce((s,r)=>s+r.costo,0), 2)}</div>
+                      <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: theme.green, lineHeight: 1.8 }}>{fmtN(mData.ricariche.filter(r=>(r.luogo||'').toUpperCase()==='CASA').reduce((s,r)=>s+kwhUsati(r),0), 1)} kWh</div>
                     </div>
                   </div>
                   {aperto && (
@@ -1251,17 +1329,17 @@ export default function App() {
                               </div>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-                              <div style={{ fontSize: '1.3rem', fontWeight: 700, fontFamily: 'monospace', color: theme.text }}>{(r.kwhEff||0).toFixed(2)} kWh</div>
-                              <div style={{ fontFamily: 'monospace', fontSize: '1rem', color: '#f59e0b' }}>{r.kwh100 ? r.kwh100.toFixed(2)+' kWh/100km' : '—'}</div>
+                              <div style={{ fontSize: '1.3rem', fontWeight: 700, fontFamily: 'monospace', color: theme.text }}>{fmtN((r.kwhEff||0), 2)} kWh</div>
+                              <div style={{ fontFamily: 'monospace', fontSize: '1rem', color: '#f59e0b' }}>{r.kwh100 ? fmtN(r.kwh100, 2)+' kWh/100km' : '—'}</div>
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                               <div style={{ fontSize: '0.9rem', color: theme.text2, lineHeight: 1.6 }}>
-                                {r.prezzoKwh ? '€'+r.prezzoKwh+'/kWh' : '—'}
+                                {r.prezzoKwh ? '€'+fmtN(r.prezzoKwh, 3, 2)+'/kWh' : '—'}
                                 {r.kmParziali ? '  ·  +'+r.kmParziali+' km' : ''}
-                                {r.km ? '  ·  '+r.km.toLocaleString('it')+' km tot' : ''}
+                                {r.km ? '  ·  '+fmtN(r.km, 0)+' km tot' : ''}
                               </div>
                               <div style={{ textAlign: 'right' }}>
-                                <div style={{ fontFamily: 'monospace', fontSize: '1.05rem', fontWeight: 700, color: theme.green }}>€{(r.costo||0).toFixed(2)}</div>
+                                <div style={{ fontFamily: 'monospace', fontSize: '1.05rem', fontWeight: 700, color: theme.green }}>€{fmtN((r.costo||0), 2)}</div>
                               </div>
                             </div>
                           </div>
@@ -1280,10 +1358,10 @@ export default function App() {
         {view === 'grafici' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 14, padding: '0 0 6px', overflow: 'hidden' }}>
-              <ChartLinea title="Spesa mensile (€)" data={graficiMesi} initialVisible={6} labelW={52} color={theme.green} theme={theme} formatTick={v => '€' + parseFloat(v.toFixed(2))} formatValue={v => '€ ' + v.toFixed(2)} />
+              <ChartLinea title="Spesa mensile (€)" data={graficiMesi} initialVisible={6} labelW={52} color={theme.green} theme={theme} formatTick={v => '€' + fmtN(v, 2, 0)} formatValue={v => '€ ' + fmtN(v, 2)} />
             </div>
             <div style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 14, padding: '0 0 6px', overflow: 'hidden' }}>
-              <ChartLinea title="Andamento consumi (kWh/100km)" data={graficiConsumi} initialVisible={10} labelW={34} color={theme.accent} theme={theme} formatTick={v => String(parseFloat(v.toFixed(2)))} formatValue={v => v.toFixed(2) + ' kWh/100km'} />
+              <ChartLinea title="Andamento consumi (kWh/100km)" data={graficiConsumi} initialVisible={10} labelW={34} color={theme.accent} theme={theme} formatTick={v => fmtN(v, 2, 0)} formatValue={v => fmtN(v, 2) + ' kWh/100km'} />
             </div>
             <RiepilogoPeriodo ricariche={ricariche} theme={theme} />
           </div>
@@ -1321,11 +1399,11 @@ export default function App() {
                   <div key={mKey} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: `1px solid ${theme.border}` }}>
                     <div>
                       <div style={{ fontSize: '0.85rem', fontWeight: 700, color: theme.text }}>{MESI_NOMI[parseInt(mKey.split('-')[1])-1]} {mKey.split('-')[0]}</div>
-                      <div style={{ fontSize: '0.75rem', color: theme.text2, marginTop: 2 }}>{mData.ricariche.length} ric · {kmMese > 0 ? kmMese.toLocaleString('it') + ' km' : '— km'}</div>
+                      <div style={{ fontSize: '0.75rem', color: theme.text2, marginTop: 2 }}>{mData.ricariche.length} ric · {kmMese > 0 ? fmtN(kmMese, 0) + ' km' : '— km'}</div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontFamily: 'monospace', fontSize: '0.85rem', fontWeight: 700, color: theme.accent }}>{mData.kwhTotali.toFixed(1)} kWh · <span style={{ color: '#34d399' }}>€{mData.costoTotale.toFixed(2)}</span></div>
-                      {mediaKwhMese && <div style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: '#a78bfa' }}>{mediaKwhMese.toFixed(2)} kWh/100km</div>}
+                      <div style={{ fontFamily: 'monospace', fontSize: '0.85rem', fontWeight: 700, color: theme.accent }}>{fmtN(mData.kwhTotali, 1)} kWh · <span style={{ color: '#34d399' }}>€{fmtN(mData.costoTotale, 2)}</span></div>
+                      {mediaKwhMese && <div style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: '#a78bfa' }}>{fmtN(mediaKwhMese, 2)} kWh/100km</div>}
                     </div>
                   </div>
                 );
@@ -1349,11 +1427,15 @@ export default function App() {
                   </div>
                   <div>
                     <label style={{ fontSize: '0.65rem', color: theme.text2 }}>CAPACITÀ BATTERIA (kWh)</label>
-                    <input type="number" value={settings.batteria} onChange={e => setSettings({ ...settings, batteria: parseFloat(e.target.value) || 64 })} style={inputSt(theme)} />
+                    <SetNum value={settings.batteria} onValue={v => setSettings(st => ({ ...st, batteria: v }))} style={inputSt(theme)} />
                   </div>
                   <div>
-                    <label style={{ fontSize: '0.65rem', color: theme.text2 }}>PREZZO DEFAULT (€/kWh)</label>
-                    <input type="number" value={settings.prezzo} onChange={e => setSettings({ ...settings, prezzo: parseFloat(e.target.value) || 0.5 })} step="0.01" style={inputSt(theme)} />
+                    <label style={{ fontSize: '0.65rem', color: theme.text2 }}>LUOGO PREDEFINITO (es. CASA)</label>
+                    <input type="text" value={settings.luogo || ''} onChange={e => setSettings({ ...settings, luogo: e.target.value.toUpperCase() })} placeholder="CASA" style={inputSt(theme)} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.65rem', color: theme.text2 }}>PREZZO PREDEFINITO (€/kWh)</label>
+                    <SetNum value={settings.prezzo} onValue={v => setSettings(st => ({ ...st, prezzo: v }))} style={inputSt(theme)} />
                   </div>
                 </div>
               )}
@@ -1365,10 +1447,10 @@ export default function App() {
               </div>
               {openSec.preset && (
                 <div style={{ padding: 14, borderTop: `1px solid ${theme.border}`, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  <div><label style={{ fontSize: '0.65rem', color: theme.text2 }}>Prima (A)</label><input type="number" value={settings.p1a} onChange={e => setSettings({ ...settings, p1a: parseInt(e.target.value) || 0 })} style={inputSt(theme)} /></div>
-                  <div><label style={{ fontSize: '0.65rem', color: theme.text2 }}>Prima (B)</label><input type="number" value={settings.p1b} onChange={e => setSettings({ ...settings, p1b: parseInt(e.target.value) || 0 })} style={inputSt(theme)} /></div>
-                  <div><label style={{ fontSize: '0.65rem', color: theme.text2 }}>Dopo (A)</label><input type="number" value={settings.p2a} onChange={e => setSettings({ ...settings, p2a: parseInt(e.target.value) || 0 })} style={inputSt(theme)} /></div>
-                  <div><label style={{ fontSize: '0.65rem', color: theme.text2 }}>Dopo (B)</label><input type="number" value={settings.p2b} onChange={e => setSettings({ ...settings, p2b: parseInt(e.target.value) || 0 })} style={inputSt(theme)} /></div>
+                  <div><label style={{ fontSize: '0.65rem', color: theme.text2 }}>Prima (A)</label><SetNum value={settings.p1a} decimals={false} onValue={v => setSettings(st => ({ ...st, p1a: v }))} style={inputSt(theme)} /></div>
+                  <div><label style={{ fontSize: '0.65rem', color: theme.text2 }}>Prima (B)</label><SetNum value={settings.p1b} decimals={false} onValue={v => setSettings(st => ({ ...st, p1b: v }))} style={inputSt(theme)} /></div>
+                  <div><label style={{ fontSize: '0.65rem', color: theme.text2 }}>Dopo (A)</label><SetNum value={settings.p2a} decimals={false} onValue={v => setSettings(st => ({ ...st, p2a: v }))} style={inputSt(theme)} /></div>
+                  <div><label style={{ fontSize: '0.65rem', color: theme.text2 }}>Dopo (B)</label><SetNum value={settings.p2b} decimals={false} onValue={v => setSettings(st => ({ ...st, p2b: v }))} style={inputSt(theme)} /></div>
                 </div>
               )}
             </div>

@@ -243,7 +243,7 @@ function useToast() {
   return { toast, show };
 }
 
-function niceScale(min, max, n = 4) {
+function niceScale(min, max, n = 6) {
   const range = (max - min) || Math.abs(max) || 1;
   const raw = range / n;
   const mag = Math.pow(10, Math.floor(Math.log10(raw)));
@@ -306,7 +306,7 @@ function ChartLinea({ data, color, theme, formatTick, formatValue, minZero }) {
       </defs>
       {ticks.map(t => (
         <g key={t}>
-          <line x1={L} x2={W - R} y1={py(t)} y2={py(t)} stroke={T.border} strokeWidth="0.6" strokeDasharray="2 3" />
+          <line x1={L} x2={W - R} y1={py(t)} y2={py(t)} stroke={T.text2} strokeOpacity="0.35" strokeWidth="0.7" />
           <text x={L - 5} y={py(t) + 3} textAnchor="end" fontSize="8" fill={T.text2}>{formatTick(t)}</text>
         </g>
       ))}
@@ -1112,7 +1112,7 @@ export default function App() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 16, padding: 16 }}>
               <div style={{ fontSize: '0.65rem', color: theme.text2, marginBottom: 12, textTransform: 'uppercase' }}>Spesa Mensile (€)</div>
-              <ChartLinea data={graficiMesi} color={theme.green} theme={theme} minZero formatTick={v => '€' + parseFloat(v.toFixed(2))} formatValue={v => '€ ' + v.toFixed(2)} />
+              <ChartLinea data={graficiMesi} color={theme.green} theme={theme} formatTick={v => '€' + parseFloat(v.toFixed(2))} formatValue={v => '€ ' + v.toFixed(2)} />
             </div>
             <div style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 16, padding: 16 }}>
               <div style={{ fontSize: '0.65rem', color: theme.text2, marginBottom: 12, textTransform: 'uppercase' }}>Andamento Consumi (kWh/100km)</div>

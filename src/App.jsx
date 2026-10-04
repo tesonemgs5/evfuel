@@ -258,72 +258,229 @@ function niceScale(min, max, n = 6) {
   return { lo, hi: ticks[ticks.length - 1], ticks };
 }
 
-// Grafico a linea con asse sinistro a valori fissi, etichette sotto e valore esatto al tocco del pallino.
-// data: [{ label, titolo, y }]
-function ChartLinea({ data, color, theme, formatTick, formatValue, minZero }) {
+// Grafico a linea a tutta larghezza, con zoom e spostamento del periodo.
+// data: [{ label, titolo, y }]  (tutti i dati; initialVisible = quanti punti mostrare all'inizio)
+function ChartLinea({ title, data, initialVisible, labelW = 40, color, theme, formatTick, formatValue }) {
   const T = theme || S;
-  const [sel, setSel] = useState(null);
-  if (!data.length) return <div style={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.text2, fontSize: '0.75rem' }}>Nessun dato</div>;
-
-  const W = 320, H = 200, L = 40, R = 18, Tm = 18, B = 28;
-  const pw = W - L - R, ph = H - Tm - B;
-  const ys = data.map(d => d.y);
-  const { lo, hi, ticks } = niceScale(minZero ? 0 : Math.min(...ys), Math.max(...ys));
   const n = data.length;
-  const px = i => (n === 1 ? L + pw / 2 : L + (i / (n - 1)) * pw);
+  const wrapRef = useRef(null);
+  const svgRef = useRef(null);
+  const [W, setW] = useState(340);
+  const initView = () => {
+    const span = Math.max(Math.min(initialVisible, n) - 1, 0);
+    return { start: Math.max(n - 1 - span, 0), span };
+  };
+  const [view, setViewState] = useState(initView);
+  const viewRef = useRef(view);
+  const [sel, setSel] = useState(null);
+  const ptrs = useRef(new Map());
+  const g = useRef({ moved: false, lastTap: 0 });
+
+  const H = 230, L = 36, R = 6, Tm = 14, B = 26, PAD = 9;
+  const pw = W - L - R - PAD * 2, ph = H - Tm - B;
+  const minSpan = Math.min(2, Math.max(n - 1, 0));
+  const maxSpan = Math.max(n - 1, 0);
+
+  const setView = (v) => { viewRef.current = v; setViewState(v); };
+  const clampView = (start, span) => {
+    span = Math.min(Math.max(span, minSpan), maxSpan);
+    start = Math.min(Math.max(start, 0), Math.max(maxSpan - span, 0));
+    return { start, span };
+  };
+  const reset = () => { setView(initView()); setSel(null); };
+
+  // nuova ricarica / dati cambiati: torna alla vista iniziale
+  useEffect(() => { reset(); /* eslint-disable-next-line */ }, [n]);
+
+  // larghezza reale del contenitore
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const upd = () => { const w = el.getBoundingClientRect().width; if (w > 50) setW(w); };
+    upd();
+    if (typeof ResizeObserver === 'undefined') { window.addEventListener('resize', upd); return () => window.removeEventListener('resize', upd); }
+    const ro = new ResizeObserver(upd);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // zoom: factor < 1 ingrandisce (meno periodo), > 1 riduce. frac = punto fisso (0..1 sulla larghezza)
+  const zoomBy = (factor, frac = 0.5) => {
+    const v = viewRef.current;
+    const c = v.start + frac * v.span;
+    const span = Math.min(Math.max(v.span * factor, minSpan), maxSpan);
+    setView(clampView(c - frac * span, span));
+  };
+  const panBy = (idx) => { const v = viewRef.current; setView(clampView(v.start + idx, v.span)); };
+
+  // rotella del mouse = zoom (listener nativo per poter bloccare lo scroll della pagina)
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el) return;
+    const onWheel = (e) => {
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      const frac = Math.min(Math.max((e.clientX - rect.left - L - PAD) / (pw || 1), 0), 1);
+      zoomBy(e.deltaY > 0 ? 1.2 : 1 / 1.2, frac);
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+    // eslint-disable-next-line
+  }, [pw, n]);
+
+  if (!n) return (
+    <div ref={wrapRef} style={{ padding: '14px 12px', color: T.text2, fontSize: '0.75rem' }}>
+      <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', marginBottom: 12 }}>{title}</div>
+      Nessun dato
+    </div>
+  );
+
+  const { start, span } = view;
+  const end = start + span;
+  const px = i => (span === 0 ? L + PAD + pw / 2 : L + PAD + ((i - start) / span) * pw);
+
+  // scala verticale calcolata solo sui punti visibili
+  const i0 = Math.max(Math.ceil(start - 1e-9), 0), i1 = Math.min(Math.floor(end + 1e-9), n - 1);
+  let vis = [];
+  for (let i = i0; i <= i1; i++) vis.push(data[i].y);
+  if (!vis.length) vis = [data[Math.min(Math.round(start), n - 1)].y];
+  const { lo, hi, ticks } = niceScale(Math.min(...vis), Math.max(...vis));
   const py = y => Tm + ph - ((y - lo) / (hi - lo || 1)) * ph;
   const baseY = Tm + ph;
-  const pts = data.map((d, i) => `${px(i)},${py(d.y)}`).join(' ');
-  const gradId = 'gc' + color.replace(/[^a-z0-9]/gi, '');
-  const every = Math.max(1, Math.ceil((n * 34) / pw));
-  const d = sel !== null ? data[sel] : null;
 
+  const a = Math.max(Math.floor(start) - 1, 0), b = Math.min(Math.ceil(end) + 1, n - 1);
+  const idxs = [];
+  for (let i = a; i <= b; i++) idxs.push(i);
+  const pts = idxs.map(i => `${px(i)},${py(data[i].y)}`).join(' ');
+  const gradId = 'gc' + color.replace(/[^a-z0-9]/gi, '');
+  const clipId = 'cl' + gradId;
+
+  const pxPerIdx = span === 0 ? pw : pw / span;
+  const every = Math.max(1, Math.ceil((labelW + 6) / pxPerIdx));
+
+  // tooltip
   let tip = null;
-  if (d) {
+  if (sel !== null && sel >= start - 1e-9 && sel <= end + 1e-9) {
+    const d = data[sel];
     const riga1 = d.titolo || d.label;
     const riga2 = formatValue(d.y);
-    const w = Math.max(riga1.length, riga2.length) * 5.4 + 14;
-    const h = 28;
-    const bx = Math.min(Math.max(px(sel) - w / 2, 2), W - w - 2);
-    let by = py(d.y) - h - 8;
-    if (by < 0) by = py(d.y) + 10;
+    const w = Math.max(riga1.length, riga2.length) * 6.4 + 16;
+    const h = 34;
+    const bx = Math.min(Math.max(px(sel) - w / 2, L), W - R - w);
+    let by = py(d.y) - h - 10;
+    if (by < 0) by = py(d.y) + 12;
     tip = (
       <g style={{ pointerEvents: 'none' }}>
-        <rect x={bx} y={by} width={w} height={h} rx="6" fill={T.bg} stroke={color} strokeWidth="1" />
-        <text x={bx + w / 2} y={by + 11} textAnchor="middle" fontSize="7.5" fill={T.text2}>{riga1}</text>
-        <text x={bx + w / 2} y={by + 23} textAnchor="middle" fontSize="9" fontWeight="700" fill={T.text}>{riga2}</text>
+        <rect x={bx} y={by} width={w} height={h} rx="7" fill={T.bg} stroke={color} strokeWidth="1" />
+        <text x={bx + w / 2} y={by + 13} textAnchor="middle" fontSize="10" fill={T.text2}>{riga1}</text>
+        <text x={bx + w / 2} y={by + 27} textAnchor="middle" fontSize="12" fontWeight="700" fill={T.text}>{riga2}</text>
       </g>
     );
   }
 
+  // gesti: 1 dito = sposta, 2 dita = zoom, tocco = valore, doppio tocco = reset
+  const rel = (e) => { const r = svgRef.current.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+  const onDown = (e) => {
+    try { svgRef.current.setPointerCapture(e.pointerId); } catch (_) {}
+    const p = rel(e);
+    ptrs.current.set(e.pointerId, p);
+    const gg = g.current;
+    if (ptrs.current.size === 1) { gg.moved = false; gg.sx = p.x; gg.sy = p.y; }
+    else { gg.moved = true; }
+    gg.lastX = p.x;
+    if (ptrs.current.size === 2) { const [p1, p2] = [...ptrs.current.values()]; gg.lastDist = Math.hypot(p1.x - p2.x, p1.y - p2.y) || 1; }
+  };
+  const onMove = (e) => {
+    if (!ptrs.current.has(e.pointerId)) return;
+    const p = rel(e);
+    ptrs.current.set(e.pointerId, p);
+    const gg = g.current;
+    if (ptrs.current.size === 1) {
+      if (Math.abs(p.x - gg.sx) > 6 || Math.abs(p.y - gg.sy) > 6) gg.moved = true;
+      if (gg.moved) {
+        const v = viewRef.current;
+        const dx = p.x - gg.lastX;
+        setView(clampView(v.start - (dx / (pw || 1)) * v.span, v.span));
+      }
+      gg.lastX = p.x;
+    } else if (ptrs.current.size === 2) {
+      const [p1, p2] = [...ptrs.current.values()];
+      const dist = Math.hypot(p1.x - p2.x, p1.y - p2.y) || 1;
+      const mid = (p1.x + p2.x) / 2;
+      const frac = Math.min(Math.max((mid - L - PAD) / (pw || 1), 0), 1);
+      zoomBy(gg.lastDist / dist, frac);
+      gg.lastDist = dist;
+    }
+  };
+  const onUp = (e, cancelled) => {
+    const gg = g.current;
+    const p = ptrs.current.get(e.pointerId);
+    const wasSingle = ptrs.current.size === 1;
+    ptrs.current.delete(e.pointerId);
+    if (ptrs.current.size === 1) { gg.lastX = [...ptrs.current.values()][0].x; }
+    if (!cancelled && wasSingle && !gg.moved && p) {
+      const now = Date.now();
+      if (now - gg.lastTap < 320) { gg.lastTap = 0; reset(); return; }
+      gg.lastTap = now;
+      let best = null, bd = 22;
+      for (let i = Math.max(i0, 0); i <= i1; i++) {
+        const d = Math.hypot(px(i) - p.x, py(data[i].y) - p.y);
+        if (d < bd) { bd = d; best = i; }
+      }
+      setSel(best !== null && best !== sel ? best : null);
+    }
+  };
+
+  const btn = { width: 28, height: 26, padding: 0, background: 'rgba(0,229,255,0.08)', border: `1px solid ${T.border}`, borderRadius: 8, color: T.accent, fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer', lineHeight: 1 };
+  const primo = data[Math.min(Math.max(Math.round(start), 0), n - 1)].titolo || data[Math.round(start)].label;
+  const ultimo = data[Math.min(Math.max(Math.round(end), 0), n - 1)].titolo || data[Math.round(end)].label;
+
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', overflow: 'visible' }}>
-      <defs>
-        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.3" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      {ticks.map(t => (
-        <g key={t}>
-          <line x1={L} x2={W - R} y1={py(t)} y2={py(t)} stroke={T.text2} strokeOpacity="0.35" strokeWidth="0.7" />
-          <text x={L - 5} y={py(t) + 3} textAnchor="end" fontSize="8" fill={T.text2}>{formatTick(t)}</text>
+    <div ref={wrapRef} style={{ width: '100%' }}>
+      <div style={{ padding: '12px 10px 4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: '0.65rem', color: T.text2, textTransform: 'uppercase' }}>{title}</div>
+          <div style={{ fontSize: '0.6rem', color: T.text2, opacity: 0.8, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{primo} → {ultimo}</div>
+        </div>
+        <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+          <button onClick={() => panBy(-Math.max(span / 2, 0.5))} style={btn} aria-label="Indietro">◀</button>
+          <button onClick={() => panBy(Math.max(span / 2, 0.5))} style={btn} aria-label="Avanti">▶</button>
+          <button onClick={() => zoomBy(1.5)} style={btn} aria-label="Riduci">−</button>
+          <button onClick={() => zoomBy(1 / 1.5)} style={btn} aria-label="Ingrandisci">+</button>
+          <button onClick={reset} style={btn} aria-label="Reimposta">⟲</button>
+        </div>
+      </div>
+      <svg ref={svgRef} width={W} height={H}
+        style={{ display: 'block', touchAction: 'pan-y', userSelect: 'none', WebkitUserSelect: 'none' }}
+        onPointerDown={onDown} onPointerMove={onMove}
+        onPointerUp={(e) => onUp(e, false)} onPointerCancel={(e) => onUp(e, true)}>
+        <defs>
+          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.3" />
+            <stop offset="100%" stopColor={color} stopOpacity="0" />
+          </linearGradient>
+          <clipPath id={clipId}><rect x={L} y={Tm - 8} width={W - L - R} height={ph + 16} /></clipPath>
+        </defs>
+        {ticks.map(t => (
+          <g key={t}>
+            <line x1={L} x2={W - R} y1={py(t)} y2={py(t)} stroke={T.text2} strokeOpacity="0.35" strokeWidth="0.7" />
+            <text x={L - 4} y={py(t) + 3.5} textAnchor="end" fontSize="10" fill={T.text2}>{formatTick(t)}</text>
+          </g>
+        ))}
+        <g clipPath={`url(#${clipId})`}>
+          {idxs.length > 1 && <polygon points={`${px(a)},${baseY} ${pts} ${px(b)},${baseY}`} fill={`url(#${gradId})`} />}
+          {idxs.length > 1 && <polyline points={pts} fill="none" stroke={color} strokeWidth="2.2" strokeLinejoin="round" />}
+          {tip === null ? null : <line x1={px(sel)} x2={px(sel)} y1={Tm} y2={baseY} stroke={color} strokeWidth="0.8" strokeDasharray="3 3" />}
+          {idxs.map(i => (
+            <circle key={i} cx={px(i)} cy={py(data[i].y)} r={sel === i ? 6 : 4} fill={color} />
+          ))}
         </g>
-      ))}
-      {n > 1 && <polygon points={`${px(0)},${baseY} ${pts} ${px(n - 1)},${baseY}`} fill={`url(#${gradId})`} />}
-      {n > 1 && <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" />}
-      {sel !== null && <line x1={px(sel)} x2={px(sel)} y1={Tm} y2={baseY} stroke={color} strokeWidth="0.8" strokeDasharray="3 3" />}
-      {data.map((p, i) => (
-        <g key={i}>
-          <circle cx={px(i)} cy={py(p.y)} r={sel === i ? 5 : 3.5} fill={color} />
-          <circle cx={px(i)} cy={py(p.y)} r="14" fill="transparent" style={{ cursor: 'pointer' }} onClick={() => setSel(sel === i ? null : i)} />
-          {(n - 1 - i) % every === 0 && (
-            <text x={px(i)} y={H - 8} textAnchor="middle" fontSize="8" fill={sel === i ? T.text : T.text2}>{p.label}</text>
-          )}
-        </g>
-      ))}
-      {tip}
-    </svg>
+        {idxs.filter(i => i >= start - 1e-9 && i <= end + 1e-9 && (n - 1 - i) % every === 0).map(i => (
+          <text key={'l' + i} x={Math.min(Math.max(px(i), L + labelW / 2 - PAD), W - R - labelW / 2 + PAD)} y={H - 8} textAnchor="middle" fontSize="10" fill={sel === i ? T.text : T.text2}>{data[i].label}</text>
+        ))}
+        {tip}
+      </svg>
+    </div>
   );
 }
 
@@ -356,7 +513,7 @@ function RiepilogoPeriodo({ ricariche, theme }) {
   const dateSt = { ...inputSt(T), fontSize: '0.8rem', padding: '8px 10px' };
 
   return (
-    <div style={{ background: T.bg2, border: `1px solid ${T.border}`, borderRadius: 16, padding: 16 }}>
+    <div style={{ background: T.bg2, border: `1px solid ${T.border}`, borderRadius: 14, padding: '12px 10px' }}>
       <div style={{ fontSize: '0.65rem', color: T.text2, marginBottom: 10, textTransform: 'uppercase' }}>Riepilogo</div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
         {opzioni.map(([id, nome]) => (
@@ -976,11 +1133,11 @@ export default function App() {
     raggruppatoPerMese[mKey].kmTotali    += Number(r.kmParziali) || 0;
   });
 
-  const graficiMesi = Object.keys(raggruppatoPerMese).sort().slice(-6).map(m => {
+  const graficiMesi = Object.keys(raggruppatoPerMese).sort().map(m => {
     const [anno, mm] = m.split('-');
     return { label: MESI_BREVI[parseInt(mm) - 1] + ' ' + anno, titolo: MESI_NOMI[parseInt(mm) - 1] + ' ' + anno, y: raggruppatoPerMese[m].costoTotale };
   });
-  const graficiConsumi = ricariche.filter(r => r.kwh100 > 0).slice(-10).map(r => ({
+  const graficiConsumi = ricariche.filter(r => r.kwh100 > 0).map(r => ({
     label: r.data.slice(8, 10) + '/' + r.data.slice(5, 7),
     titolo: r.data.slice(8, 10) + '/' + r.data.slice(5, 7) + '/' + r.data.slice(0, 4),
     y: r.kwh100
@@ -1026,7 +1183,7 @@ export default function App() {
         </div>
       </header>
 
-      <main style={{ padding: '20px 16px' }}>
+      <main style={{ padding: (view === 'grafici' || view === 'dati') ? '12px 4px' : '20px 16px' }}>
         {view === 'home' && (
           <>
             {editIdx !== null && (
@@ -1109,14 +1266,12 @@ export default function App() {
         {view === 'nuovo' && <FormRicarica settings={settings} ricariche={ricariche} editIdx={null} onSave={salvaRicarica} onCancel={() => setView('home')} showToast={showToast} theme={theme} />}
 
         {view === 'grafici' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 16, padding: 16 }}>
-              <div style={{ fontSize: '0.65rem', color: theme.text2, marginBottom: 12, textTransform: 'uppercase' }}>Spesa Mensile (€)</div>
-              <ChartLinea data={graficiMesi} color={theme.green} theme={theme} formatTick={v => '€' + parseFloat(v.toFixed(2))} formatValue={v => '€ ' + v.toFixed(2)} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 14, padding: '0 0 6px', overflow: 'hidden' }}>
+              <ChartLinea title="Spesa mensile (€)" data={graficiMesi} initialVisible={6} labelW={52} color={theme.green} theme={theme} formatTick={v => '€' + parseFloat(v.toFixed(2))} formatValue={v => '€ ' + v.toFixed(2)} />
             </div>
-            <div style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 16, padding: 16 }}>
-              <div style={{ fontSize: '0.65rem', color: theme.text2, marginBottom: 12, textTransform: 'uppercase' }}>Andamento Consumi (kWh/100km)</div>
-              <ChartLinea data={graficiConsumi} color={theme.accent} theme={theme} formatTick={v => String(parseFloat(v.toFixed(2)))} formatValue={v => v.toFixed(2) + ' kWh/100km'} />
+            <div style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 14, padding: '0 0 6px', overflow: 'hidden' }}>
+              <ChartLinea title="Andamento consumi (kWh/100km)" data={graficiConsumi} initialVisible={10} labelW={34} color={theme.accent} theme={theme} formatTick={v => String(parseFloat(v.toFixed(2)))} formatValue={v => v.toFixed(2) + ' kWh/100km'} />
             </div>
             <RiepilogoPeriodo ricariche={ricariche} theme={theme} />
           </div>
@@ -1124,7 +1279,7 @@ export default function App() {
 
         {view === 'dati' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 16, padding: 16 }}>
+            <div style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 14, padding: '12px 8px' }}>
               <div onClick={() => toggleSec('archivio')} style={{ fontSize: '0.65rem', color: theme.text2, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12, cursor: 'pointer', display: 'flex', justifyContent: 'space-between' }}>
                 <span>Archivio Dati</span><span>{openSec.archivio ? '▲' : '▼'}</span>
               </div>
@@ -1144,7 +1299,7 @@ export default function App() {
               </>
               )}
             </div>
-            <div style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 16, padding: 16 }}>
+            <div style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 14, padding: '12px 8px' }}>
               <div style={{ fontSize: '0.65rem', color: theme.text2, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>Riepilogo Mensile</div>
               {Object.keys(raggruppatoPerMese).sort((a,b) => b.localeCompare(a)).map(mKey => {
                 const mData = raggruppatoPerMese[mKey];

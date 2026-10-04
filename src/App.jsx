@@ -156,8 +156,10 @@ function groupInt(i) { return i.replace(/^0+(?=\d)/, '').replace(/\B(?=(\d{3})+(
 function toInputStr(v, group = false) {
   if (v === null || v === undefined || v === '' || !Number.isFinite(Number(v))) return '';
   const [i, d] = String(Number(v)).split('.');
-  return (group ? groupInt(i) : i) + (d ? ',' + d : '');
+  return (group ? groupInt(i) : i) + (d ? ',' + d.padEnd(2, '0') : '');
 }
+// numero intero senza decimali, altrimenti sempre 2 decimali (per le scale dei grafici)
+function fmtD(v) { return Number.isInteger(Math.round(Number(v) * 1e6) / 1e6) ? fmtN(v, 0) : fmtN(v, 2); }
 
 // Campo numerico: il punto diventa virgola, le migliaia (se group) si mettono da sole.
 function NumInput({ value, onChange, decimals = true, group = false, style, placeholder }) {
@@ -195,7 +197,13 @@ function NumInput({ value, onChange, decimals = true, group = false, style, plac
     caretRef.current = pos;
     onChange(out);
   };
-  return <input ref={ref} type="text" inputMode={decimals ? 'decimal' : 'numeric'} autoComplete="off" value={value} onChange={handle} placeholder={placeholder} style={style} />;
+  const pad = () => {
+    if (!decimals || !value || !String(value).includes(',')) return;
+    const [i, d] = String(value).split(',');
+    const out = (i === '' ? '0' : i) + ',' + (d || '').padEnd(2, '0');
+    if (out !== value) onChange(out);
+  };
+  return <input ref={ref} type="text" inputMode={decimals ? 'decimal' : 'numeric'} autoComplete="off" value={value} onChange={handle} onBlur={pad} placeholder={placeholder} style={style} />;
 }
 // versione per i valori numerici delle impostazioni
 function SetNum({ value, onValue, decimals = true, group = false, style }) {
@@ -660,6 +668,16 @@ function FormRicarica({ settings, ricariche, editIdx, onSave, onCancel, showToas
   const [fKwh,    setFKwh]    = useState(ex && ex.kwhEff !== null && ex.kwhEff !== undefined ? toInputStr(ex.kwhEff) : '');
   const [fPrezzo, setFPrezzo] = useState(ex ? toInputStr(ex.prezzoKwh) : toInputStr(settings.prezzo));
 
+  // prezzo uguale a quello predefinito -> luogo predefinito (CASA); prezzo diverso -> CASA sparisce
+  const cambiaPrezzo = (str) => {
+    setFPrezzo(str);
+    const v = parseIt(str);
+    const isDef = !isNaN(v) && Math.abs(v - settings.prezzo) < 0.0005;
+    const def = settings.luogo || '';
+    if (isDef) { if (fLuogo === '' && def) setFLuogo(def); }
+    else if (fLuogo === def) setFLuogo('');
+  };
+
   const prima = parseIt(fPrima) || 0;
   const dopo  = parseIt(fDopo)  || 0;
   const diff  = dopo - prima;
@@ -712,7 +730,7 @@ function FormRicarica({ settings, ricariche, editIdx, onSave, onCancel, showToas
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <label style={{ fontSize: '0.62rem', textTransform: 'uppercase', color: T.text2 }}>KM Parziali</label>
-          <NumInput value={fKmParz} onChange={setFKmParz} group placeholder={kmParzAuto ? fmtN(kmParzAuto, 1, 0) : ''} style={inputSt(T)} />
+          <NumInput value={fKmParz} onChange={setFKmParz} group placeholder={kmParzAuto ? fmtN(kmParzAuto, 2, 0) : ''} style={inputSt(T)} />
           {kmParzAuto && !(kmParzN > 0) && <div style={{ fontSize: '0.6rem', color: T.accent, marginTop: 2 }}>⚡ calcolato automaticamente</div>}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -741,10 +759,10 @@ function FormRicarica({ settings, ricariche, editIdx, onSave, onCancel, showToas
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <label style={{ fontSize: '0.62rem', textTransform: 'uppercase', color: T.text2 }}>Prezzo €/kWh</label>
-          <NumInput value={fPrezzo} onChange={setFPrezzo} style={inputSt(T)} />
+          <NumInput value={fPrezzo} onChange={cambiaPrezzo} style={inputSt(T)} />
           <div style={{ display: 'flex', gap: 6 }}>
-            <button onClick={() => { setFPrezzo(toInputStr(settings.prezzo)); setFLuogo(settings.luogo || ''); }} style={chipSt(T)}>€{fmtN(settings.prezzo, 3, 2)}</button>
-            <button onClick={() => setFPrezzo('0,5')} style={chipSt(T)}>€0,50</button>
+            <button onClick={() => { setFPrezzo(toInputStr(settings.prezzo)); setFLuogo(settings.luogo || ''); }} style={chipSt(T)}>€{fmtN(settings.prezzo, 2)}</button>
+            <button onClick={() => cambiaPrezzo('0,50')} style={chipSt(T)}>€0,50</button>
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -1266,7 +1284,7 @@ export default function App() {
           <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: supabaseOffline ? '#fff' : theme.accent }}>€{fmtN(totali.costo, 2)}</div>
           <div style={{ fontSize: '0.55rem', color: supabaseOffline ? 'rgba(255,255,255,0.8)' : theme.text2, textTransform: 'uppercase' }}>KM TOTALI</div>
           <div style={{ fontSize: '0.55rem', color: supabaseOffline ? 'rgba(255,255,255,0.8)' : theme.text2, textTransform: 'uppercase' }}>COSTO TOT.</div>
-          <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: supabaseOffline ? '#fff' : theme.accent }}>{fmtN(totali.kwh, 1)}</div>
+          <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: supabaseOffline ? '#fff' : theme.accent }}>{fmtN(totali.kwh, 2)}</div>
           <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: supabaseOffline ? '#fff' : theme.accent }}>{mediaKwh100 ? fmtN(mediaKwh100, 2) : '—'}</div>
           <div style={{ fontSize: '0.55rem', color: supabaseOffline ? 'rgba(255,255,255,0.8)' : theme.text2, textTransform: 'uppercase' }}>KWH TOTALI</div>
           <div style={{ fontSize: '0.55rem', color: supabaseOffline ? 'rgba(255,255,255,0.8)' : theme.text2, textTransform: 'uppercase' }}>MEDIA /100KM</div>
@@ -1309,9 +1327,9 @@ export default function App() {
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: isDark ? theme.accent : '#004a6e', lineHeight: 1.8 }}>€{fmtN(mData.costoTotale, 2)}</div>
-                      <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: isDark ? theme.accent : '#004a6e', lineHeight: 1.8 }}>{fmtN(mData.kwhTotali, 1)} kWh</div>
+                      <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: isDark ? theme.accent : '#004a6e', lineHeight: 1.8 }}>{fmtN(mData.kwhTotali, 2)} kWh</div>
                       <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: theme.green, lineHeight: 1.8 }}>€{fmtN(mData.ricariche.filter(r=>(r.luogo||'').toUpperCase()==='CASA').reduce((s,r)=>s+r.costo,0), 2)}</div>
-                      <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: theme.green, lineHeight: 1.8 }}>{fmtN(mData.ricariche.filter(r=>(r.luogo||'').toUpperCase()==='CASA').reduce((s,r)=>s+kwhUsati(r),0), 1)} kWh</div>
+                      <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: theme.green, lineHeight: 1.8 }}>{fmtN(mData.ricariche.filter(r=>(r.luogo||'').toUpperCase()==='CASA').reduce((s,r)=>s+kwhUsati(r),0), 2)} kWh</div>
                     </div>
                   </div>
                   {aperto && (
@@ -1334,7 +1352,7 @@ export default function App() {
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                               <div style={{ fontSize: '0.9rem', color: theme.text2, lineHeight: 1.6 }}>
-                                {r.prezzoKwh ? '€'+fmtN(r.prezzoKwh, 3, 2)+'/kWh' : '—'}
+                                {r.prezzoKwh ? '€'+fmtN(r.prezzoKwh, 2)+'/kWh' : '—'}
                                 {r.kmParziali ? '  ·  +'+r.kmParziali+' km' : ''}
                                 {r.km ? '  ·  '+fmtN(r.km, 0)+' km tot' : ''}
                               </div>
@@ -1358,10 +1376,10 @@ export default function App() {
         {view === 'grafici' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 14, padding: '0 0 6px', overflow: 'hidden' }}>
-              <ChartLinea title="Spesa mensile (€)" data={graficiMesi} initialVisible={6} labelW={52} color={theme.green} theme={theme} formatTick={v => '€' + fmtN(v, 2, 0)} formatValue={v => '€ ' + fmtN(v, 2)} />
+              <ChartLinea title="Spesa mensile (€)" data={graficiMesi} initialVisible={6} labelW={52} color={theme.green} theme={theme} formatTick={v => '€' + fmtD(v)} formatValue={v => '€ ' + fmtN(v, 2)} />
             </div>
             <div style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 14, padding: '0 0 6px', overflow: 'hidden' }}>
-              <ChartLinea title="Andamento consumi (kWh/100km)" data={graficiConsumi} initialVisible={10} labelW={34} color={theme.accent} theme={theme} formatTick={v => fmtN(v, 2, 0)} formatValue={v => fmtN(v, 2) + ' kWh/100km'} />
+              <ChartLinea title="Andamento consumi (kWh/100km)" data={graficiConsumi} initialVisible={10} labelW={34} color={theme.accent} theme={theme} formatTick={v => fmtD(v)} formatValue={v => fmtN(v, 2) + ' kWh/100km'} />
             </div>
             <RiepilogoPeriodo ricariche={ricariche} theme={theme} />
           </div>
@@ -1402,7 +1420,7 @@ export default function App() {
                       <div style={{ fontSize: '0.75rem', color: theme.text2, marginTop: 2 }}>{mData.ricariche.length} ric · {kmMese > 0 ? fmtN(kmMese, 0) + ' km' : '— km'}</div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontFamily: 'monospace', fontSize: '0.85rem', fontWeight: 700, color: theme.accent }}>{fmtN(mData.kwhTotali, 1)} kWh · <span style={{ color: '#34d399' }}>€{fmtN(mData.costoTotale, 2)}</span></div>
+                      <div style={{ fontFamily: 'monospace', fontSize: '0.85rem', fontWeight: 700, color: theme.accent }}>{fmtN(mData.kwhTotali, 2)} kWh · <span style={{ color: '#34d399' }}>€{fmtN(mData.costoTotale, 2)}</span></div>
                       {mediaKwhMese && <div style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: '#a78bfa' }}>{fmtN(mediaKwhMese, 2)} kWh/100km</div>}
                     </div>
                   </div>

@@ -104,12 +104,12 @@ const THEMES = {
   dark: {
     bg: '#0a0f1e', bg2: 'rgba(255,255,255,0.04)', border: 'rgba(0,229,255,0.15)',
     accent: '#00e5ff', accent2: '#7c3aed', green: '#10b981',
-    text: '#e2e8f0', text2: '#94a3b8', headerBg: 'rgba(10,15,30,0.95)', navBg: 'rgba(10,15,30,0.95)'
+    text: '#e2e8f0', text2: '#94a3b8', headerBg: 'rgba(10,15,30,0.95)', navBg: '#0a0f1e'
   },
   light: {
     bg: '#f0f4f8', bg2: 'rgba(0,0,0,0.04)', border: 'rgba(0,140,200,0.25)',
     accent: '#0070a8', accent2: '#5b21b6', green: '#047857',
-    text: '#1e293b', text2: '#64748b', headerBg: 'rgba(240,244,248,0.95)', navBg: 'rgba(240,244,248,0.95)'
+    text: '#1e293b', text2: '#64748b', headerBg: 'rgba(240,244,248,0.95)', navBg: '#f0f4f8'
   }
 };
 
@@ -1146,7 +1146,7 @@ export default function App() {
   const toggleSec = (key) => setOpenSec(p => ({ ...p, [key]: !p[key] }));
 
   return (
-    <div style={{ fontFamily: 'system-ui,sans-serif', background: theme.bg, color: theme.text, minHeight: '100vh', maxWidth: 480, margin: '0 auto', paddingBottom: 80, position: 'relative', boxSizing: 'border-box' }}>
+    <div style={{ fontFamily: 'system-ui,sans-serif', background: theme.bg, color: theme.text, minHeight: '100vh', maxWidth: 480, margin: '0 auto', paddingBottom: 58, position: 'relative', boxSizing: 'border-box' }}>
       {toast && <div style={{ position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 500, padding: '12px 24px', background: toast.color, color: '#fff', borderRadius: 30, fontWeight: 700, whiteSpace: 'nowrap' }}>{toast.msg}</div>}
       {confirmIdx !== null && <ConfirmDialog messaggio={confirmIdx === 'all' ? 'Vuoi cancellare tutto?' : 'Cancellare la ricarica?'} onConfirm={() => cancellaRicarica(confirmIdx)} onCancel={() => setConfirmIdx(null)} theme={theme} />}
 
@@ -1442,7 +1442,7 @@ export default function App() {
         )}
       </main>
 
-      <nav style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, background: theme.navBg, borderTop: `1px solid ${theme.border}`, display: 'flex', padding: '8px 0', zIndex: 200 }}>
+      <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, margin: '0 auto', width: '100%', maxWidth: 480, background: theme.navBg, borderTop: `1px solid ${theme.border}`, display: 'flex', padding: '0 0 env(safe-area-inset-bottom, 0px)', zIndex: 200, boxSizing: 'border-box' }}>
         {[
           { id: 'home',     l: 'HOME',    i: '🏠' },
           { id: 'nuovo',    l: 'AGGIUNGI', i: '➕' },
@@ -1452,8 +1452,8 @@ export default function App() {
         ].map(t => {
           const active = view === t.id;
           return (
-          <button key={t.id} onClick={() => { setView(t.id); setEditIdx(null); }} style={{ flex: 1, background: active ? 'rgba(0,229,255,0.1)' : 'transparent', border: 'none', borderTop: active ? `2px solid ${theme.accent}` : '2px solid transparent', color: active ? theme.accent : theme.text2, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, padding: '8px 0', transition: 'all 0.2s' }}>
-            <span style={{ fontSize: '1.1rem' }}>{t.i}</span>
+          <button key={t.id} onClick={() => { setView(t.id); setEditIdx(null); }} style={{ flex: 1, background: active ? 'rgba(0,229,255,0.1)' : 'transparent', border: 'none', borderTop: active ? `2px solid ${theme.accent}` : '2px solid transparent', color: active ? theme.accent : theme.text2, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1, padding: '4px 0 3px', margin: 0, lineHeight: 1.1, transition: 'all 0.2s' }}>
+            <span style={{ fontSize: '1.05rem', lineHeight: 1.1 }}>{t.i}</span>
             <span style={{ fontSize: '0.55rem', letterSpacing: '0.05em', fontWeight: active ? 800 : 400 }}>{t.l}</span>
           </button>
           );

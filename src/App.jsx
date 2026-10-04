@@ -707,6 +707,18 @@ function FormRicarica({ settings, ricariche, editIdx, onSave, onCancel, showToas
 
 export default function App() {
   const [view,       setView]       = useState('home');
+  const mainRef = useRef(null);
+  // layout a schermo intero: la pagina non scorre, scorre solo l'area contenuti
+  useEffect(() => {
+    const st = document.createElement('style');
+    st.textContent = 'html,body,#root{margin:0;padding:0;height:100%;overflow:hidden;overscroll-behavior:none;background:#0a0f1e}';
+    document.head.appendChild(st);
+    const mv = document.querySelector('meta[name="viewport"]');
+    if (mv && !/viewport-fit/.test(mv.content)) mv.content += ', viewport-fit=cover';
+    return () => st.remove();
+  }, []);
+  // cambio sezione: contenuti di nuovo in alto
+  useEffect(() => { if (mainRef.current) mainRef.current.scrollTop = 0; }, [view]);
   const [themeMode,  setThemeMode]  = useState(() => localStorage.getItem('mgs5_theme') || 'auto');
   const [ricariche,  setRicariche]  = useState(() => leggiCacheLocale() || []);
   const [loading,    setLoading]    = useState(() => !localStorage.getItem(LS_RICARICHE));
@@ -1146,12 +1158,12 @@ export default function App() {
   const toggleSec = (key) => setOpenSec(p => ({ ...p, [key]: !p[key] }));
 
   return (
-    <div style={{ fontFamily: 'system-ui,sans-serif', background: theme.bg, color: theme.text, minHeight: '100vh', maxWidth: 480, margin: '0 auto', paddingBottom: 58, position: 'relative', boxSizing: 'border-box' }}>
+    <div style={{ fontFamily: 'system-ui,sans-serif', background: theme.bg, color: theme.text, height: '100dvh', maxHeight: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden', maxWidth: 480, margin: '0 auto', position: 'relative', boxSizing: 'border-box' }}>
       {toast && <div style={{ position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 500, padding: '12px 24px', background: toast.color, color: '#fff', borderRadius: 30, fontWeight: 700, whiteSpace: 'nowrap' }}>{toast.msg}</div>}
       {confirmIdx !== null && <ConfirmDialog messaggio={confirmIdx === 'all' ? 'Vuoi cancellare tutto?' : 'Cancellare la ricarica?'} onConfirm={() => cancellaRicarica(confirmIdx)} onCancel={() => setConfirmIdx(null)} theme={theme} />}
 
       <header style={{
-        position: 'sticky', top: 0, zIndex: 100,
+        flexShrink: 0, position: 'relative', zIndex: 100,
         background: supabaseOffline ? 'rgba(239,68,68,0.92)' : theme.headerBg,
         backdropFilter: 'blur(12px)',
         borderBottom: supabaseOffline ? '1px solid rgba(239,68,68,0.9)' : `1px solid ${theme.border}`,
@@ -1183,7 +1195,7 @@ export default function App() {
         </div>
       </header>
 
-      <main style={{ padding: (view === 'grafici' || view === 'dati') ? '12px 4px' : '20px 16px' }}>
+      <main ref={mainRef} style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', padding: (view === 'grafici' || view === 'dati') ? '12px 4px 16px' : '20px 16px 24px' }}>
         {view === 'home' && (
           <>
             {editIdx !== null && (
@@ -1234,7 +1246,7 @@ export default function App() {
                               <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', color: theme.text2, fontWeight: 600 }}>{r.data.slice(8,10)}/{r.data.slice(5,7)}/{r.data.slice(0,4)}{r.luogo ? ' · '+r.luogo : ''}</div>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                 <div style={{ fontFamily: 'monospace', fontSize: '0.9rem', color: theme.text2 }}>{Math.round(r.pctPrima > 1 ? r.pctPrima : r.pctPrima * 100)}→{Math.round(r.pctDopo > 1 ? r.pctDopo : r.pctDopo * 100)}%</div>
-                                <button onClick={() => { setEditIdx(idx); setView('home'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} style={{ background: 'none', border: 'none', color: theme.accent, cursor: 'pointer', padding: '4px 6px', fontSize: '1rem' }}>✏️</button>
+                                <button onClick={() => { setEditIdx(idx); setView('home'); if (mainRef.current) mainRef.current.scrollTo({ top: 0, behavior: 'smooth' }); }} style={{ background: 'none', border: 'none', color: theme.accent, cursor: 'pointer', padding: '4px 6px', fontSize: '1rem' }}>✏️</button>
                                 <button onClick={() => setConfirmIdx(idx)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px 8px', fontSize: '1.1rem', fontWeight: 700 }}>✕</button>
                               </div>
                             </div>
@@ -1442,7 +1454,7 @@ export default function App() {
         )}
       </main>
 
-      <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, margin: '0 auto', width: '100%', maxWidth: 480, background: theme.navBg, borderTop: `1px solid ${theme.border}`, display: 'flex', padding: '0 0 env(safe-area-inset-bottom, 0px)', zIndex: 200, boxSizing: 'border-box' }}>
+      <nav style={{ flexShrink: 0, position: 'relative', width: '100%', background: theme.navBg, borderTop: `1px solid ${theme.border}`, display: 'flex', padding: '0 0 env(safe-area-inset-bottom, 0px)', zIndex: 200, boxSizing: 'border-box' }}>
         {[
           { id: 'home',     l: 'HOME',    i: '🏠' },
           { id: 'nuovo',    l: 'AGGIUNGI', i: '➕' },

@@ -722,11 +722,11 @@ function FormRicarica({ settings, ricariche, editIdx, onSave, onCancel, showToas
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <label style={{ fontSize: '0.62rem', textTransform: 'uppercase', color: T.text2 }}>Dove si ricarica</label>
-          <input type="text" value={fLuogo} onChange={e => setFLuogo(e.target.value.toUpperCase())} placeholder="CASA..." style={inputSt(T)} />
+          <input type="text" value={fLuogo} onChange={e => setFLuogo(e.target.value.toUpperCase())} style={inputSt(T)} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <label style={{ fontSize: '0.62rem', textTransform: 'uppercase', color: T.text2 }}>KM Totali</label>
-          <NumInput value={fKm} onChange={setFKm} group decimals={false} placeholder="0" style={inputSt(T)} />
+          <NumInput value={fKm} onChange={setFKm} group decimals={false} style={inputSt(T)} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <label style={{ fontSize: '0.62rem', textTransform: 'uppercase', color: T.text2 }}>KM Parziali</label>
@@ -735,14 +735,14 @@ function FormRicarica({ settings, ricariche, editIdx, onSave, onCancel, showToas
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <label style={{ fontSize: '0.62rem', textTransform: 'uppercase', color: T.text2 }}>% Prima</label>
-          <NumInput value={fPrima} onChange={setFPrima} placeholder="0" style={inputSt(T)} />
+          <NumInput value={fPrima} onChange={setFPrima} style={inputSt(T)} />
           <div style={{ display: 'flex', gap: 6 }}>
             {[settings.p1a, settings.p1b].map(v => <button key={v} onClick={() => setFPrima(toInputStr(v))} style={chipSt(T)}>{v}%</button>)}
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <label style={{ fontSize: '0.62rem', textTransform: 'uppercase', color: T.text2 }}>% Dopo</label>
-          <NumInput value={fDopo} onChange={setFDopo} placeholder="100" style={inputSt(T)} />
+          <NumInput value={fDopo} onChange={setFDopo} style={inputSt(T)} />
           <div style={{ display: 'flex', gap: 6 }}>
             {[settings.p2a, settings.p2b].map(v => <button key={v} onClick={() => setFDopo(toInputStr(v))} style={chipSt(T)}>{v}%</button>)}
           </div>
@@ -750,11 +750,11 @@ function FormRicarica({ settings, ricariche, editIdx, onSave, onCancel, showToas
         <div style={{ gridColumn: '1/-1', background: 'rgba(0,229,255,0.04)', border: `1px solid ${T.border}`, borderRadius: 10, padding: 10, display: 'flex', justifyContent: 'space-between' }}>
           <div>
             <div style={{ fontSize: '0.65rem', color: T.text2, textTransform: 'uppercase' }}>Differenza %</div>
-            <div style={{ fontFamily: 'monospace', fontSize: '1rem', color: T.accent }}>{diff > 0 ? fmtN(diff, 0) + ' %' : '—'}</div>
+            <div style={{ fontFamily: 'monospace', fontSize: '1rem', color: T.accent }}>{diff > 0 ? fmtN(diff, 0) + ' %' : '\u00a0'}</div>
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '0.65rem', color: T.text2, textTransform: 'uppercase' }}>kWh teorici</div>
-            <div style={{ fontFamily: 'monospace', fontSize: '1rem', color: T.accent }}>{kwhTeor > 0 ? fmtN(kwhTeor, 2) + ' kWh' : '—'}</div>
+            <div style={{ fontFamily: 'monospace', fontSize: '1rem', color: T.accent }}>{kwhTeor > 0 ? fmtN(kwhTeor, 2) + ' kWh' : '\u00a0'}</div>
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -768,7 +768,7 @@ function FormRicarica({ settings, ricariche, editIdx, onSave, onCancel, showToas
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <label style={{ fontSize: '0.62rem', textTransform: 'uppercase', color: T.text2 }}>Costo €</label>
           <div style={{ fontFamily: 'monospace', fontSize: '1.2rem', color: T.green, padding: '10px 12px', background: 'rgba(255,255,255,0.06)', border: `1px solid ${T.border}`, borderRadius: 10 }}>
-            {costo > 0 ? '€ ' + fmtN(costo, 2) : '—'}
+            {costo > 0 ? '€ ' + fmtN(costo, 2) : '\u00a0'}
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -779,7 +779,7 @@ function FormRicarica({ settings, ricariche, editIdx, onSave, onCancel, showToas
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <label style={{ fontSize: '0.62rem', textTransform: 'uppercase', color: T.text2 }}>kWh / 100km</label>
           <div style={{ fontFamily: 'monospace', fontSize: '1.2rem', color: T.accent2, padding: '10px 12px', background: 'rgba(255,255,255,0.06)', border: `1px solid ${T.border}`, borderRadius: 10 }}>
-            {kwh100 ? fmtN(kwh100, 2) : '—'}
+            {kwh100 ? fmtN(kwh100, 2) : '\u00a0'}
           </div>
         </div>
       </div>

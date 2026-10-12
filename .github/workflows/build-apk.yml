@@ -1,0 +1,71 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: build-apk
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Prepara keystore e firma
+        env:
+          KS_B64: ${{ secrets.KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          echo "$KS_B64" | base64 -d > "$GITHUB_WORKSPACE/android/release.jks"
+          printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+            "$GITHUB_WORKSPACE/android/release.jks" "$KS_PASS" "$KEY_ALIAS" "$KEY_PASS" \
+            > android/keystore.properties
+
+      - run: npm ci
+
+      - name: Cap sync
+        run: npm run build && npx cap sync android
+
+      - name: Build APK
+        run: |
+          chmod +x android/gradlew
+          python3 aggiorna_versione_e_build.py --auto
+
+      - name: Pubblica su Releases (tiene le ultime 2)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          APK=$(ls release-builds/*/*.apk | tail -1)
+          VERSION=$(grep -oP 'versionName "\K[^"]+' android/app/build.gradle)
+          TAG="v${VERSION}-${GITHUB_RUN_NUMBER}"
+          cp "$APK" evfuel.apk
+          gh release create "$TAG" evfuel.apk \
+            --target "$GITHUB_SHA" \
+            --title "EVFuel ${VERSION}#${GITHUB_RUN_NUMBER}" \
+            --notes "Build automatica #${GITHUB_RUN_NUMBER} dal commit ${GITHUB_SHA::7}" \
+            --latest
+          gh release list --limit 100 --json tagName,createdAt \
+            --jq 'sort_by(.createdAt) | reverse | .[2:] | .[].tagName' \
+          | while read -r OLD; do gh release delete "$OLD" --yes --cleanup-tag; done

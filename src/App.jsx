@@ -1,7 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { Capacitor } from '@capacitor/core';
-import { APP_VERSION } from './version';
+import { widgetDisponibile, inviaAlWidget, preparaDatiWidget } from './widget';
+
+// Versione: A.GGG.HHMM + #NN (numero build GitHub Actions, se presente)
+const APP_VERSION = (typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev')
+  + (typeof __BUILD_NUM__ !== 'undefined' && __BUILD_NUM__ ? '#' + __BUILD_NUM__ : '');
 
 // Rileva se l'app è eseguita come APK nativo Capacitor
 export const isNativeCapacitor = () => {
@@ -853,6 +857,18 @@ export default function App() {
   }, []);
 
   useEffect(() => { loadRicariche(); }, []);
+
+  // Widget Android: aggiorna i dati ad ogni cambio delle ricariche e quando l'app torna visibile.
+  const [widgetTick, setWidgetTick] = useState(0);
+  useEffect(() => {
+    const quandoVisibile = () => { if (document.visibilityState === 'visible') setWidgetTick(t => t + 1); };
+    document.addEventListener('visibilitychange', quandoVisibile);
+    return () => document.removeEventListener('visibilitychange', quandoVisibile);
+  }, []);
+  useEffect(() => {
+    if (!widgetDisponibile()) return;
+    inviaAlWidget(preparaDatiWidget(ricariche));
+  }, [ricariche, widgetTick]);
 
   // Svuota la coda verso Supabase, in ordine cronologico. Non parte senza rete.
   // Usa solo localStorage, ref e setState funzionali: puo' essere chiamata

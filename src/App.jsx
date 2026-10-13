@@ -882,7 +882,8 @@ export default function App() {
   const [editIdx,    setEditIdx]    = useState(null);
   const [confirmIdx, setConfirmIdx] = useState(null);
   const [mesiAperti, setMesiAperti] = useState({});
-  const [openSec,    setOpenSec]    = useState({ veicolo: true, preset: false, sheets: false, supabase: false, danger: false, archivio: false, aggiornamenti: false, consumo: false });
+  const [showConsumo, setShowConsumo] = useState(false);
+  const [openSec,    setOpenSec]    = useState({ veicolo: true, preset: false, sheets: false, supabase: false, danger: false, archivio: false, aggiornamenti: false });
   const { toast, show: showToast }  = useToast();
   // Stato rete REALE (non piu' un flag salvato che restava rosso finche' non
   // si toccava il pulsante): supabaseOffline = senza rete oppure server non
@@ -1339,6 +1340,7 @@ export default function App() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ fontSize: '1.4rem', fontWeight: 900 }}><span style={{ color: supabaseOffline ? '#fff' : theme.text }}>{settings.targa}</span></div>
 
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
           {supabaseOffline ? (
             <button onClick={riattivaSupabase} title="Tocca per riprovare la sincronizzazione" style={{ padding: '4px 8px', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.4)', borderRadius: 20, color: '#fff', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 800 }}>
               ⚠️ OFFLINE{codaCount > 0 ? ` · ${codaCount} in attesa` : ''}
@@ -1348,6 +1350,10 @@ export default function App() {
               {themeMode === 'auto' ? '🌓' : themeMode === 'dark' ? '🌙' : '☀️'}
             </button>
           )}
+          <button onClick={() => { setShowConsumo(v => !v); try { if (mainRef.current) mainRef.current.scrollTop = 0; } catch (_) {} }} title="Verifica consumo" style={{ padding: '4px 8px', background: showConsumo ? theme.accent : 'rgba(255,255,255,0.05)', border: `1px solid ${theme.border}`, borderRadius: 20, color: showConsumo ? '#fff' : theme.text2, cursor: 'pointer', fontSize: '0.7rem' }}>
+            🔍
+          </button>
+          </div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 16px', textAlign: 'right' }}>
           <div style={{ fontFamily: 'monospace', fontSize: '0.95rem', fontWeight: 700, color: supabaseOffline ? '#fff' : theme.accent }}>{totali.km > 0 ? fmtN(totali.km, 0) : '—'}</div>
@@ -1362,6 +1368,15 @@ export default function App() {
       </header>
 
       <main ref={mainRef} style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', padding: (view === 'grafici' || view === 'dati') ? '12px 4px 16px' : '20px 16px 24px' }}>
+        {showConsumo && (
+          <div style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 16, padding: 14, marginBottom: 14 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, color: theme.text, fontWeight: 700 }}>
+              <span>🔍 Verifica consumo</span>
+              <span onClick={() => setShowConsumo(false)} style={{ cursor: 'pointer', color: theme.text2 }}>✕</span>
+            </div>
+            <VerificaConsumo ricariche={ricariche} settings={settings} T={theme} />
+          </div>
+        )}
         {view === 'home' && (
           <>
             {editIdx !== null && (
@@ -1502,17 +1517,6 @@ export default function App() {
 
         {view === 'settings' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-
-            <div style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 16, overflow: 'hidden' }}>
-              <div onClick={() => toggleSec('consumo')} style={{ padding: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', color: theme.text }}>
-                <span>🔍 Verifica consumo</span><span>{openSec.consumo ? '▲' : '▼'}</span>
-              </div>
-              {openSec.consumo && (
-                <div style={{ padding: 14, borderTop: `1px solid ${theme.border}` }}>
-                  <VerificaConsumo ricariche={ricariche} settings={settings} T={theme} />
-                </div>
-              )}
-            </div>
 
             <div style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 16, overflow: 'hidden' }}>
               <div onClick={() => toggleSec('veicolo')} style={{ padding: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', color: theme.text }}>

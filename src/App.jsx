@@ -667,26 +667,40 @@ function VerificaConsumo({ ricariche, settings, T }) {
   const [fPct, setFPct] = useState('');
   const [fKmTot, setFKmTot] = useState('');
   const [fKmParz, setFKmParz] = useState('');
+  const [fKwh, setFKwh] = useState('');
+  const [inverso, setInverso] = useState(false);
 
   const conKm = ricariche.filter(r => r.km && r.km > 0);
   const ultima = conKm.length ? conKm.reduce((a, b) => (b.km >= a.km ? b : a)) : null;
   const kmBase = ultima ? ultima.km : 0;
 
   const onKmTot = (v) => {
+    setInverso(false); setFKwh('');
     setFKmTot(v);
     const n = parseIt(v);
     setFKmParz(Number.isFinite(n) ? toInputStr(Math.max(0, n - kmBase)) : '');
   };
   const onKmParz = (v) => {
+    setInverso(false); setFKwh('');
     setFKmParz(v);
     const n = parseIt(v);
     setFKmTot(Number.isFinite(n) ? toInputStr(kmBase + n, true) : '');
   };
+  const onKwh = (v) => { setInverso(true); setFKwh(v); };
 
   const pct = parseIt(fPct);
-  const parz = parseIt(fKmParz);
   const kwhUsatiStima = ultima && Number.isFinite(pct) ? ((ultima.pctDopo - pct) / 100) * settings.batteria : NaN;
-  const kwh100 = Number.isFinite(kwhUsatiStima) && kwhUsatiStima >= 0 && parz > 0 ? (kwhUsatiStima / parz) * 100 : null;
+  const kwhOk = Number.isFinite(kwhUsatiStima) && kwhUsatiStima >= 0;
+
+  // Calcolo inverso: da kWh/100km + batteria attuale -> km parziali e totali
+  const kwhIn = parseIt(fKwh);
+  const parzInv = inverso && kwhOk && kwhIn > 0 ? (kwhUsatiStima / kwhIn) * 100 : null;
+  const parz = parseIt(fKmParz);
+  const kwh100 = !inverso && kwhOk && parz > 0 ? (kwhUsatiStima / parz) * 100 : null;
+
+  const showKmParz = inverso ? (parzInv !== null ? toInputStr(Math.round(parzInv)) : '') : fKmParz;
+  const showKmTot = inverso ? (parzInv !== null ? toInputStr(kmBase + Math.round(parzInv), true) : '') : fKmTot;
+  const showKwh = inverso ? fKwh : (kwh100 !== null ? fmtN(kwh100, 1) : '');
 
   const conParz = ricariche.filter(r => r.kmParziali && r.kmParziali > 0);
   const sumKm = conParz.reduce((a, r) => a + r.kmParziali, 0);
@@ -701,10 +715,10 @@ function VerificaConsumo({ ricariche, settings, T }) {
         Ultima ricarica salvata: <b>{fmtN(ultima.km, 0)} km</b>, batteria al <b>{fmtN(ultima.pctDopo, 0)}%</b>.
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        <div><label style={lbl}>Km totali</label><NumInput value={fKmTot} onChange={onKmTot} group decimals={false} style={inputSt(T)} /></div>
-        <div><label style={lbl}>Km parziali</label><NumInput value={fKmParz} onChange={onKmParz} decimals={false} style={inputSt(T)} /></div>
+        <div><label style={lbl}>Km totali</label><NumInput value={showKmTot} onChange={onKmTot} group decimals={false} style={inputSt(T)} /></div>
+        <div><label style={lbl}>Km parziali</label><NumInput value={showKmParz} onChange={onKmParz} decimals={false} style={inputSt(T)} /></div>
         <div><label style={lbl}>Batteria attuale (%)</label><NumInput value={fPct} onChange={setFPct} decimals={false} style={inputSt(T)} /></div>
-        <div><label style={lbl}>kWh/100km</label><input readOnly value={kwh100 !== null ? fmtN(kwh100, 1) : ''} placeholder="—" style={{ ...inputSt(T), fontWeight: 800, color: T.accent }} /></div>
+        <div><label style={lbl}>kWh/100km</label><NumInput value={showKwh} onChange={onKwh} style={{ ...inputSt(T), fontWeight: 800, color: T.accent }} placeholder="—" /></div>
       </div>
       {Number.isFinite(kwhUsatiStima) && kwhUsatiStima >= 0 && (
         <div style={{ fontSize: '0.7rem', color: T.text2 }}>Energia usata dall'ultima ricarica: circa <b>{fmtN(kwhUsatiStima, 1)} kWh</b></div>

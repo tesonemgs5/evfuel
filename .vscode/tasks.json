@@ -4,9 +4,16 @@
     {
       "label": "Sincronizza automatico",
       "type": "shell",
-      "command": "powershell -NoProfile -Command \"while ($true) { git pull --rebase --autostash 2>&1 | Out-Null; if ((git status -sb) -match 'ahead') { git push 2>&1 | Out-Null }; Start-Sleep -Seconds 20 }\"",
-      "runOptions": { "runOn": "folderOpen" },
-      "presentation": { "reveal": "never", "panel": "dedicated", "showReuseMessage": false, "close": true },
+      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${workspaceFolder}/.vscode/sync-auto.ps1\"",
+      "runOptions": {
+        "runOn": "folderOpen"
+      },
+      "presentation": {
+        "reveal": "never",
+        "panel": "dedicated",
+        "showReuseMessage": false,
+        "close": true
+      },
       "isBackground": true,
       "problemMatcher": []
     }

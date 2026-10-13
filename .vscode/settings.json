@@ -3,5 +3,7 @@
   "git.postCommitCommand": "sync",
   "git.rebaseWhenSync": true,
   "git.confirmSync": false,
-  "git.enableSmartCommit": true
+  "git.enableSmartCommit": true,
+  "git.showActionButton": { "commit": true, "publish": true, "sync": false },
+  "git.countBadge": "off"
 }

@@ -39,3 +39,5 @@ android/keystore.properties
 *.jks
 *.keystore
 *.bak
+
+.env

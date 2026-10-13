@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import { Capacitor } from '@capacitor/core'
 import { registerSW } from 'virtual:pwa-register'
 import App from './App.jsx'
+import AvvisoAggiornamento from './aggiornamenti.jsx'
 
 // Il service worker serve SOLO nella versione web/PWA, per aprire l'app
 // senza rete. Dentro l'APK (Capacitor) i file dell'app sono già sul
@@ -39,6 +40,7 @@ if (staGirandoInCapacitor) {
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
+    <AvvisoAggiornamento />
     <App />
   </React.StrictMode>,
 )

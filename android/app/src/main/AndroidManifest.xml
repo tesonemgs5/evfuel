@@ -24,6 +24,31 @@
 
         </activity>
 
+        <!-- Mini-finestra "Verifica consumo" (aperta dal widget) -->
+        <activity
+            android:name=".VerificaConsumoActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask"
+            android:taskAffinity=""
+            android:theme="@style/AppTheme.VerificaConsumo" />
+
+        <!-- Widget "EVFuel" -->
+        <receiver
+            android:name=".EvfuelWidgetProvider"
+            android:exported="true"
+            android:label="EVFuel">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="android.intent.action.DATE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/evfuel_widget_info" />
+        </receiver>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

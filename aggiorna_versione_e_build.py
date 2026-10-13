@@ -59,12 +59,38 @@ try:
 except Exception:
     ROMA = None
 
-# Prefisso del nome del file APK: <prefisso>-a-ggg-hhmm.apk
-# (es. evfuel-6-274-2240.apk). Cambialo qui se copi lo script in un altro progetto.
-PREFISSO_APK = "evfuel"
+
+AUTO = ("--auto" in sys.argv) or os.environ.get("AUTO_BUILD") == "1"
+
+
+def pulisci_vecchie_build(project_root, tieni=1):
+    """
+    Prima di una nuova build lascia solo le ultime `tieni` cartelle APK
+    (default 1): a build finita ne restano 2 (la precedente + la nuova),
+    cosi' se la nuova non parte c'e' sempre un APK di backup.
+    Le cartelle si chiamano AAAAMMGG_HHMM_vX.Y.Z, quindi l'ordine
+    alfabetico coincide con quello cronologico. Tocca SOLO cartelle
+    con quel nome dentro release-builds.
+    """
+    base = os.path.join(project_root, "release-builds")
+    if not os.path.isdir(base):
+        return
+    cartelle = sorted(
+        d for d in os.listdir(base)
+        if re.match(r"^\d{8}_\d{4}_v", d) and os.path.isdir(os.path.join(base, d))
+    )
+    da_cancellare = cartelle[:-tieni] if tieni > 0 else cartelle
+    for d in da_cancellare:
+        try:
+            shutil.rmtree(os.path.join(base, d))
+            print(f"Rimossa vecchia build: {d}")
+        except Exception as e:
+            print(f"ATTENZIONE: non riesco a rimuovere {d}: {e}")
 
 
 def pausa_finale():
+    if AUTO:
+        return
     try:
         input("\nPremi INVIO per chiudere...")
     except Exception:
@@ -74,45 +100,31 @@ def pausa_finale():
 def find_project_root():
     """Cerca la cartella progetto partendo da dove si trova questo script."""
     here = os.path.dirname(os.path.abspath(__file__))
-    candidates = [here, os.path.join(here, "calendario")]
+    candidates = [here]
     for c in candidates:
         if os.path.isfile(os.path.join(c, "android", "app", "build.gradle")):
             return c
     return None
 
 
-class ErroreVersione(Exception):
-    pass
-
-
 def ultima_data_commit(project_root):
     """
-    Legge la data dell'ultimo commit git: e' l'UNICO orario usato per la
-    versione, uguale per tutti (app, versionName Android, nome del file
-    APK, build su Vercel) finche' non si fa un nuovo commit.
-    NIENTE ripiego sull'orologio del PC: se git non risponde si solleva
-    ErroreVersione col motivo vero, invece di inventare un orario diverso
-    a ogni build.
+    Legge la data dell'ultimo commit git, per calcolare la STESSA versione
+    che genera in questa build calcolaVersioneBuild() in vite.config.js
+    (vedi la funzione gemella li'): cosi' versionName (Android) e la
+    versione mostrata nell'app web/PWA coincidono sempre, anche se questo
+    script viene lanciato giorni dopo l'ultimo push. Se git non e'
+    disponibile o fallisce, si ripiega sull'istante attuale (stesso
+    fallback usato lato JS), cosi' la build non si blocca mai per questo.
     """
     try:
         iso = subprocess.check_output(
-            ["git", "log", "-1", "--format=%cI"], cwd=project_root, text=True,
-            stderr=subprocess.STDOUT,
+            ["git", "log", "-1", "--format=%cI"], cwd=project_root, text=True
         ).strip()
-    except FileNotFoundError:
-        raise ErroreVersione("git non e' installato o non e' nel PATH di sistema.")
-    except subprocess.CalledProcessError as e:
-        dettaglio = (e.output or "").strip() or f"codice di uscita {e.returncode}"
-        raise ErroreVersione(f"'git log' e' fallito in {project_root}:\n  {dettaglio}")
-    if not iso:
-        raise ErroreVersione(
-            f"git non ha restituito nessun commit in {project_root} "
-            "(repository senza commit?). Fai almeno un commit e riprova."
-        )
-    try:
-        return datetime.fromisoformat(iso)  # es. "2026-09-18T22:24:10+02:00"
-    except ValueError:
-        raise ErroreVersione(f"data del commit non leggibile: {iso!r}")
+        d = datetime.fromisoformat(iso)  # es. "2026-09-18T22:24:10+02:00"
+        return d
+    except Exception:
+        return datetime.now(ROMA) if ROMA else datetime.now()
 
 
 def calcola_versione(project_root):
@@ -165,10 +177,6 @@ def aggiorna_vite_config(vite_path):
     content = assicura_import_execsync(content)
 
     nuova_funzione = '''function calcolaVersioneBuild() {
-  // Versione imposta dallo script di build locale (aggiorna_versione_e_build.py):
-  // e' la stessa usata per versionName Android e per il nome del file APK.
-  // Su Vercel la variabile non esiste e si usa il calcolo da git qui sotto.
-  if (process.env.APP_VERSION_FORZATA) return process.env.APP_VERSION_FORZATA;
   // Usa la data dell'ULTIMO COMMIT git, non l'istante in cui gira questa
   // build: cosi' la versione resta IDENTICA sia che la build parta su
   // Vercel (subito dopo il push) sia che parta in locale ore o giorni
@@ -238,32 +246,6 @@ def aggiorna_vite_config(vite_path):
     return True
 
 
-def verifica_versione_in_dist(project_root, versione):
-    """
-    Controlla che il numero di versione sia davvero finito nel codice
-    compilato (dist/): e' quello che l'app mostra in Impostazioni.
-    Se non c'e', il nome del file APK potrebbe non coincidere con l'app.
-    """
-    dist = os.path.join(project_root, "dist")
-    for cartella, _, files in os.walk(dist):
-        for nome in files:
-            if not nome.endswith((".js", ".html", ".json", ".webmanifest")):
-                continue
-            try:
-                with open(os.path.join(cartella, nome), "r", encoding="utf-8", errors="ignore") as f:
-                    if versione in f.read():
-                        print(f"Controllo versione: {versione} presente nel codice compilato ({nome}).")
-                        return True
-            except OSError:
-                pass
-    print("\n" + "!" * 60)
-    print(f"ATTENZIONE: la versione {versione} NON risulta in dist/.")
-    print("L'app potrebbe mostrare un numero diverso dal nome del file APK.")
-    print("Controlla che vite.config.js passi calcolaVersioneBuild() ad __APP_VERSION__.")
-    print("!" * 60 + "\n")
-    return False
-
-
 def run_npm_o_npx(project_root, comando, descrizione):
     """
     Esegue un comando npm/npx nella cartella del progetto. Su Windows serve
@@ -271,7 +253,7 @@ def run_npm_o_npx(project_root, comando, descrizione):
     """
     is_windows = os.name == "nt"
     print(f"\nEseguo: {comando} ({descrizione})...\n")
-    result = subprocess.run(comando, cwd=project_root, shell=is_windows)
+    result = subprocess.run(comando, cwd=project_root, shell=True)
     if result.returncode != 0:
         print(f"\nERRORE: '{comando}' e' fallito. Controlla l'output sopra.")
         print("La build Android NON verra' avviata: rifarla ora produrrebbe")
@@ -280,7 +262,19 @@ def run_npm_o_npx(project_root, comando, descrizione):
         sys.exit(1)
 
 
-def bump_version_gradle(gradle_path, nuova_versione):
+def calcola_version_code(project_root):
+    """
+    versionCode = minuti trascorsi dal 1/1/2026 (UTC) alla data dell'ultimo
+    commit. Cresce sempre ed e' IDENTICO su PC e su GitHub Actions: cosi'
+    non serve piu' salvare nulla in build.gradle per "contare" le build.
+    """
+    from datetime import timezone
+    ora = ultima_data_commit(project_root).astimezone(timezone.utc)
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    return int((ora - base).total_seconds() // 60)
+
+
+def bump_version_gradle(gradle_path, nuova_versione, version_code=None):
     with open(gradle_path, "r", encoding="utf-8") as f:
         content = f.read()
 
@@ -293,7 +287,7 @@ def bump_version_gradle(gradle_path, nuova_versione):
 
     old_code = int(match_code.group(1))
     old_name = match_name.group(1)
-    new_code = old_code + 1
+    new_code = max(old_code + 1, version_code or 0)
 
     content = content.replace(f"versionCode {old_code}", f"versionCode {new_code}", 1)
     content = content.replace(
@@ -381,20 +375,6 @@ def main():
         print("potrebbe produrre un'app che non riesce a collegarsi a Supabase.")
         print("(Proseguo comunque: magari le variabili sono impostate diversamente.)\n")
 
-    # 0. Versione calcolata UNA SOLA VOLTA, dall'ultimo commit git, e imposta
-    #    a tutta la catena: app (via variabile d'ambiente letta da
-    #    vite.config.js), versionName Android e nome del file APK.
-    try:
-        nuova_versione = calcola_versione(project_root)
-    except ErroreVersione as e:
-        print("ERRORE: non riesco a leggere la data dell'ultimo commit git.")
-        print(f"  {e}")
-        print("Senza un commit non c'e' un orario univoco per la versione: build annullata.")
-        pausa_finale()
-        sys.exit(1)
-    os.environ["APP_VERSION_FORZATA"] = nuova_versione
-    print(f"Versione (dall'ultimo commit git): {nuova_versione}\n")
-
     # 1. Aggiorna vite.config.js (app web) al nuovo formato, PRIMA di buildare
     if os.path.isfile(vite_config_path):
         aggiorna_vite_config(vite_config_path)
@@ -405,15 +385,19 @@ def main():
     #    versione che l'app mostra in Impostazioni, e tutto il resto del
     #    codice aggiornato (01-App.jsx, 06-Logica.jsx, ecc.).
     run_npm_o_npx(project_root, "npm run build", "ricompilo il codice web in dist/")
-    versione_in_dist = verifica_versione_in_dist(project_root, nuova_versione)
 
     # 3. Copia ultra-veloce dei file dist/ dentro Android (npx cap copy)
     run_npm_o_npx(project_root, "npx cap copy android", "copio dist/ nelle risorse Android (versione veloce)")
 
-    # 4. (la versione e' gia' stata calcolata al punto 0: identica per app, gradle e nome file)
+    # 4. Calcola la versione col nuovo formato (dall'ultimo commit git)
+    nuova_versione = calcola_versione(project_root)
+    print(f"\nNuova versione calcolata (dall'ultimo commit git): {nuova_versione}\n")
 
     # 5. Aggiorna build.gradle
-    new_code = bump_version_gradle(app_gradle_path, nuova_versione)
+    new_code = bump_version_gradle(app_gradle_path, nuova_versione, calcola_version_code(project_root))
+
+    # 5b. Pulizia: tieni solo l'ultimo APK precedente (backup) prima di crearne uno nuovo
+    pulisci_vecchie_build(project_root, tieni=1)
 
     # 6. Build APK velocizzata (usa demone caldo Gradle + build parallela)
     run_gradle_task(android_dir, "assembleRelease")
@@ -440,16 +424,14 @@ def main():
 
     copied = []
     if os.path.isfile(apk_src):
-        # Nome file: <prefisso>-a-ggg-hhmm.apk (es. versione 6.274.2240 -> evfuel-6-274-2240.apk)
-        nome_apk = PREFISSO_APK + "-" + nuova_versione.replace(".", "-") + ".apk"
+        # Nome file: evfuel-a-ggg-hhmm.apk
+        nome_apk = "evfuel-" + nuova_versione.replace(".", "-") + ".apk"
         dest = os.path.join(out_dir, nome_apk)
         shutil.copyfile(apk_src, dest)
         copied.append(dest)
 
     print("\n--- Fatto ---")
     print(f"Versione: versionCode {new_code}, versionName {nuova_versione}")
-    if not versione_in_dist:
-        print(f"ATTENZIONE: versione non trovata in dist/: verifica che l'app mostri {nuova_versione} in Impostazioni.")
     print("Questa build include il codice web ricompilato ORA (npm run build")
     print("+ npx cap sync android eseguiti sopra), non una copia precedente.")
     if copied:

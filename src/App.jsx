@@ -883,6 +883,19 @@ export default function App() {
   const [confirmIdx, setConfirmIdx] = useState(null);
   const [mesiAperti, setMesiAperti] = useState({});
   const [showConsumo, setShowConsumo] = useState(false);
+  const consumoRef = useRef(null);
+  // Verifica consumo: un tocco fuori dal pannello (tranne la lente) lo chiude
+  useEffect(() => {
+    if (!showConsumo) return;
+    const fuori = (e) => {
+      const t = e.target;
+      if (consumoRef.current && consumoRef.current.contains(t)) return;
+      if (t && t.closest && t.closest('[data-consumo-toggle]')) return;
+      setShowConsumo(false);
+    };
+    document.addEventListener('pointerdown', fuori, true);
+    return () => document.removeEventListener('pointerdown', fuori, true);
+  }, [showConsumo]);
   const [openSec,    setOpenSec]    = useState({ veicolo: true, preset: false, sheets: false, supabase: false, danger: false, archivio: false, aggiornamenti: false });
   const { toast, show: showToast }  = useToast();
   // Stato rete REALE (non piu' un flag salvato che restava rosso finche' non
@@ -1350,7 +1363,7 @@ export default function App() {
               {themeMode === 'auto' ? '🌓' : themeMode === 'dark' ? '🌙' : '☀️'}
             </button>
           )}
-          <button onClick={() => { setShowConsumo(v => !v); try { if (mainRef.current) mainRef.current.scrollTop = 0; } catch (_) {} }} title="Verifica consumo" style={{ padding: '4px 8px', background: showConsumo ? theme.accent : 'rgba(255,255,255,0.05)', border: `1px solid ${theme.border}`, borderRadius: 20, color: showConsumo ? '#fff' : theme.text2, cursor: 'pointer', fontSize: '0.7rem' }}>
+          <button onClick={() => { setShowConsumo(v => !v); try { if (mainRef.current) mainRef.current.scrollTop = 0; } catch (_) {} }} data-consumo-toggle="1" title="Verifica consumo" style={{ padding: '4px 8px', background: showConsumo ? theme.accent : 'rgba(255,255,255,0.05)', border: `1px solid ${theme.border}`, borderRadius: 20, color: showConsumo ? '#fff' : theme.text2, cursor: 'pointer', fontSize: '0.7rem' }}>
             🔍
           </button>
           </div>
@@ -1369,7 +1382,7 @@ export default function App() {
 
       <main ref={mainRef} style={{ flex: '1 1 0', minHeight: 0, overflowY: 'auto', overflowX: 'hidden', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', padding: (view === 'grafici' || view === 'dati') ? '12px 4px 16px' : '20px 16px 24px' }}>
         {showConsumo && (
-          <div style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 16, padding: 14, marginBottom: 14 }}>
+          <div ref={consumoRef} style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 16, padding: 14, marginBottom: 14 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, color: theme.text, fontWeight: 700 }}>
               <span>🔍 Verifica consumo</span>
               <span onClick={() => setShowConsumo(false)} style={{ cursor: 'pointer', color: theme.text2 }}>✕</span>

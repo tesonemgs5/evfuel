@@ -34,7 +34,7 @@ export async function inviaAlWidget(dati) {
 }
 
 // Riassume le ricariche per il widget: totali del mese corrente + ultima ricarica.
-export function preparaDatiWidget(ricariche) {
+export function preparaDatiWidget(ricariche, settings) {
   const lista = [...(ricariche || [])].filter(r => r && r.data).sort((a, b) => String(a.data).localeCompare(String(b.data)));
   const oggi = new Date();
   const meseKey = oggi.getFullYear() + '-' + String(oggi.getMonth() + 1).padStart(2, '0');
@@ -57,5 +57,13 @@ export function preparaDatiWidget(ricariche) {
     prima: Math.round(Number(u.pctPrima) > 1 ? Number(u.pctPrima) : Number(u.pctPrima) * 100) || 0,
     dopo: Math.round(Number(u.pctDopo) > 1 ? Number(u.pctDopo) : Number(u.pctDopo) * 100) || 0,
   } : null;
-  return { v: 1, mese, ultima };
+  // dati per la mini-schermata "Verifica consumo" del widget: ultima ricarica con km (come nel pannello)
+  const conKm = (ricariche || []).filter(r => r && r.km && r.km > 0);
+  const base = conKm.length ? conKm.reduce((a, b) => (b.km >= a.km ? b : a)) : null;
+  const consumo = base ? {
+    kmBase: Number(base.km) || 0,
+    pctDopo: Number(base.pctDopo) > 1 ? Number(base.pctDopo) : Number(base.pctDopo) * 100,
+    batteria: Number(settings && settings.batteria) || 0,
+  } : null;
+  return { v: 1, mese, ultima, consumo };
 }

@@ -28,6 +28,7 @@ public class EvfuelWidgetProvider extends AppWidgetProvider {
 
     static final String PREFS = "evfuel_widget";
     static final String CHIAVE = "data";
+    static final String RISULTATO = "risultato";
 
     @Override
     public void onUpdate(Context ctx, AppWidgetManager mgr, int[] ids) {
@@ -79,12 +80,12 @@ public class EvfuelWidgetProvider extends AppWidgetProvider {
 
             RemoteViews rv = new RemoteViews(ctx.getPackageName(), R.layout.widget_evfuel);
             rv.setImageViewBitmap(R.id.widget_img, bmp);
-            Intent it = ctx.getPackageManager().getLaunchIntentForPackage(ctx.getPackageName());
-            if (it != null) {
-                PendingIntent pi = PendingIntent.getActivity(ctx, 0, it,
-                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-                rv.setOnClickPendingIntent(R.id.widget_root, pi);
-            }
+            // tocco sul widget -> mini-finestra "Verifica consumo"
+            Intent it = new Intent(ctx, VerificaConsumoActivity.class);
+            it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            PendingIntent pi = PendingIntent.getActivity(ctx, 0, it,
+                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            rv.setOnClickPendingIntent(R.id.widget_root, pi);
             mgr.updateAppWidget(id, rv);
         } catch (Exception ignored) {
         }
@@ -94,6 +95,16 @@ public class EvfuelWidgetProvider extends AppWidgetProvider {
         try {
             SharedPreferences sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
             String s = sp.getString(CHIAVE, null);
+            return s == null ? null : new JSONObject(s);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static JSONObject leggiRisultato(Context ctx) {
+        try {
+            SharedPreferences sp = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+            String s = sp.getString(RISULTATO, null);
             return s == null ? null : new JSONObject(s);
         } catch (Exception e) {
             return null;
@@ -170,6 +181,21 @@ public class EvfuelWidgetProvider extends AppWidgetProvider {
         p.setTextSize(10.5f * d);
         String riga = n + (n == 1 ? " ricarica" : " ricariche") + " \u00B7 " + num(kwh, 1) + " kWh";
         c.drawText(entra(p, riga, maxW), x1, yCosto + 4f * d + 10.5f * d, p);
+
+        // ultima verifica consumo (a destra)
+        JSONObject ris = leggiRisultato(ctx);
+        if (ris != null && ris.has("kwh100")) {
+            p.setTypeface(Typeface.DEFAULT_BOLD);
+            p.setTextAlign(Paint.Align.RIGHT);
+            p.setColor(azzurro);
+            p.setTextSize(22f * d);
+            c.drawText(num(ris.optDouble("kwh100", 0), 1), x2, yCosto, p);
+            p.setTypeface(Typeface.DEFAULT);
+            p.setColor(sub);
+            p.setTextSize(10.5f * d);
+            c.drawText("kWh/100km", x2, yCosto + 4f * d + 10.5f * d, p);
+            p.setTextAlign(Paint.Align.LEFT);
+        }
 
         // ultima ricarica
         float top = yCosto + 4f * d + 10.5f * d + 8f * d;

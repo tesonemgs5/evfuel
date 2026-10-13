@@ -701,10 +701,10 @@ function VerificaConsumo({ ricariche, settings, T }) {
         Ultima ricarica salvata: <b>{fmtN(ultima.km, 0)} km</b>, batteria al <b>{fmtN(ultima.pctDopo, 0)}%</b>.
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        <div><label style={lbl}>Batteria attuale (%)</label><NumInput value={fPct} onChange={setFPct} decimals={false} style={inputSt(T)} /></div>
-        <div><label style={lbl}>kWh/100km</label><input readOnly value={kwh100 !== null ? fmtN(kwh100, 1) : ''} placeholder="—" style={{ ...inputSt(T), fontWeight: 800, color: T.accent }} /></div>
         <div><label style={lbl}>Km totali</label><NumInput value={fKmTot} onChange={onKmTot} group decimals={false} style={inputSt(T)} /></div>
         <div><label style={lbl}>Km parziali</label><NumInput value={fKmParz} onChange={onKmParz} decimals={false} style={inputSt(T)} /></div>
+        <div><label style={lbl}>Batteria attuale (%)</label><NumInput value={fPct} onChange={setFPct} decimals={false} style={inputSt(T)} /></div>
+        <div><label style={lbl}>kWh/100km</label><input readOnly value={kwh100 !== null ? fmtN(kwh100, 1) : ''} placeholder="—" style={{ ...inputSt(T), fontWeight: 800, color: T.accent }} /></div>
       </div>
       {Number.isFinite(kwhUsatiStima) && kwhUsatiStima >= 0 && (
         <div style={{ fontSize: '0.7rem', color: T.text2 }}>Energia usata dall'ultima ricarica: circa <b>{fmtN(kwhUsatiStima, 1)} kWh</b></div>
@@ -922,8 +922,8 @@ export default function App() {
   }, []);
   useEffect(() => {
     if (!widgetDisponibile()) return;
-    inviaAlWidget(preparaDatiWidget(ricariche));
-  }, [ricariche, widgetTick]);
+    inviaAlWidget(preparaDatiWidget(ricariche, settings));
+  }, [ricariche, settings, widgetTick]);
 
   // Svuota la coda verso Supabase, in ordine cronologico. Non parte senza rete.
   // Usa solo localStorage, ref e setState funzionali: puo' essere chiamata

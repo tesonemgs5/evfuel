@@ -24,6 +24,15 @@
 
         </activity>
 
+        <!-- Mini-finestra "Verifica consumo" (aperta dal widget) -->
+        <activity
+            android:name=".VerificaConsumoActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask"
+            android:taskAffinity=""
+            android:theme="@style/AppTheme.VerificaConsumo" />
+
         <!-- Widget "EVFuel" -->
         <receiver
             android:name=".EvfuelWidgetProvider"

@@ -46,6 +46,10 @@ public class InserisciValoreActivity extends Activity {
                 titolo = "Km parziali";
                 chiave = ConsumoWidgetProvider.K_KMPARZ;
                 break;
+            case "kwh100":
+                titolo = "kWh/100km";
+                chiave = ConsumoWidgetProvider.K_KWH100;
+                break;
             case "pct":
                 titolo = "Batteria attuale (%)";
                 chiave = ConsumoWidgetProvider.K_PCT;
@@ -91,7 +95,9 @@ public class InserisciValoreActivity extends Activity {
 
         Double attuale = ConsumoWidgetProvider.leggiNum(this, chiave);
         if (attuale != null) {
-            campoTesto.setText(String.format(Locale.US, "%d", Math.round(attuale)));
+            campoTesto.setText(campo.equals("kwh100")
+                    ? String.format(Locale.US, "%.1f", attuale)
+                    : String.format(Locale.US, "%d", Math.round(attuale)));
             campoTesto.selectAll();
         }
         campoTesto.setOnEditorActionListener((v, actionId, ev) -> {
@@ -155,7 +161,14 @@ public class InserisciValoreActivity extends Activity {
             SharedPreferences.Editor ed = sp.edit();
             String vs = v == null ? "" : String.valueOf(Math.round(v));
             switch (campo) {
+                case "kwh100":
+                    // calcolo inverso: km parziali/totali vengono ricavati da kWh/100km e batteria
+                    ed.putString(ConsumoWidgetProvider.K_KWH100, v == null ? "" : String.valueOf(Math.round(v * 10) / 10.0));
+                    ed.putString(ConsumoWidgetProvider.K_KMTOT, "");
+                    ed.putString(ConsumoWidgetProvider.K_KMPARZ, "");
+                    break;
                 case "kmparz":
+                    ed.putString(ConsumoWidgetProvider.K_KWH100, "");
                     ed.putString(ConsumoWidgetProvider.K_KMPARZ, vs);
                     ed.putString(ConsumoWidgetProvider.K_KMTOT, v == null ? "" : String.valueOf(Math.round(kmBase + v)));
                     break;
@@ -163,6 +176,7 @@ public class InserisciValoreActivity extends Activity {
                     ed.putString(ConsumoWidgetProvider.K_PCT, vs);
                     break;
                 default:
+                    ed.putString(ConsumoWidgetProvider.K_KWH100, "");
                     ed.putString(ConsumoWidgetProvider.K_KMTOT, vs);
                     ed.putString(ConsumoWidgetProvider.K_KMPARZ, v == null ? "" : String.valueOf(Math.round(Math.max(0, v - kmBase))));
                     break;

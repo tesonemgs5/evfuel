@@ -16,7 +16,7 @@ import java.util.Locale;
 /**
  * Widget "Verifica consumo": mostra km totali, km parziali, batteria attuale e kWh/100km.
  * Toccando un campo si apre una piccola finestra (InserisciValoreActivity) con la tastiera.
- * Toccando il risultato kWh/100km si azzerano i dati inseriti.
+ * Toccando kWh/100km lo si inserisce (calcolo inverso: ricava km parziali e totali); toccando il titolo si azzerano i dati.
  */
 public class ConsumoWidgetProvider extends AppWidgetProvider {
 
@@ -24,6 +24,7 @@ public class ConsumoWidgetProvider extends AppWidgetProvider {
     static final String K_KMTOT = "in_kmtot";
     static final String K_KMPARZ = "in_kmparz";
     static final String K_PCT = "in_pct";
+    static final String K_KWH100 = "in_kwh100";
 
     @Override
     public void onUpdate(Context ctx, AppWidgetManager mgr, int[] ids) {
@@ -40,7 +41,7 @@ public class ConsumoWidgetProvider extends AppWidgetProvider {
 
     static void azzera(Context ctx) {
         SharedPreferences sp = ctx.getSharedPreferences(EvfuelWidgetProvider.PREFS, Context.MODE_PRIVATE);
-        sp.edit().remove(K_KMTOT).remove(K_KMPARZ).remove(K_PCT).remove(EvfuelWidgetProvider.RISULTATO).apply();
+        sp.edit().remove(K_KMTOT).remove(K_KMPARZ).remove(K_PCT).remove(K_KWH100).remove(EvfuelWidgetProvider.RISULTATO).apply();
         aggiornaTutti(ctx);
         EvfuelWidgetProvider.aggiornaTutti(ctx);
     }
@@ -85,14 +86,35 @@ public class ConsumoWidgetProvider extends AppWidgetProvider {
         }
     }
 
-    static Double calcolaKwh100(Context ctx) {
+    /** Valori mostrati dal widget: {kmTot, kmParz, pct, kwh100}; null = vuoto.
+     *  Se e' impostato kWh/100km (calcolo inverso) ricava km parziali e totali da batteria e ultima ricarica. */
+    static Double[] valori(Context ctx) {
         double[] b = base(ctx);
         Double pct = leggiNum(ctx, K_PCT);
-        Double parz = leggiNum(ctx, K_KMPARZ);
-        if (b == null || pct == null || parz == null || parz <= 0) return null;
-        double kwhUsati = ((b[1] - pct) / 100.0) * b[2];
-        if (kwhUsati < 0) return null;
-        return (kwhUsati / parz) * 100.0;
+        Double kwhIn = leggiNum(ctx, K_KWH100);
+        if (kwhIn != null) {
+            Double kp = null, kt = null;
+            if (b != null && pct != null && kwhIn > 0) {
+                double kwhUsati = ((b[1] - pct) / 100.0) * b[2];
+                if (kwhUsati >= 0) {
+                    kp = (double) Math.round((kwhUsati / kwhIn) * 100.0);
+                    kt = b[0] + kp;
+                }
+            }
+            return new Double[]{kt, kp, pct, kwhIn};
+        }
+        Double kt = leggiNum(ctx, K_KMTOT);
+        Double kp = leggiNum(ctx, K_KMPARZ);
+        Double r = null;
+        if (b != null && pct != null && kp != null && kp > 0) {
+            double kwhUsati = ((b[1] - pct) / 100.0) * b[2];
+            if (kwhUsati >= 0) r = (kwhUsati / kp) * 100.0;
+        }
+        return new Double[]{kt, kp, pct, r};
+    }
+
+    static Double calcolaKwh100(Context ctx) {
+        return valori(ctx)[3];
     }
 
     /** Tiene allineato il risultato mostrato dal widget "EVFuel" principale. */
@@ -105,7 +127,8 @@ public class ConsumoWidgetProvider extends AppWidgetProvider {
             } else {
                 JSONObject o = new JSONObject();
                 o.put("kwh100", r);
-                Double kt = leggiNum(ctx, K_KMTOT), kp = leggiNum(ctx, K_KMPARZ), pc = leggiNum(ctx, K_PCT);
+                Double[] v = valori(ctx);
+                Double kt = v[0], kp = v[1], pc = v[2];
                 o.put("kmTot", kt == null ? 0 : kt);
                 o.put("kmParz", kp == null ? 0 : kp);
                 o.put("pct", pc == null ? 0 : pc);
@@ -134,10 +157,8 @@ public class ConsumoWidgetProvider extends AppWidgetProvider {
         try {
             RemoteViews rv = new RemoteViews(ctx.getPackageName(), R.layout.widget_consumo);
 
-            Double kt = leggiNum(ctx, K_KMTOT);
-            Double kp = leggiNum(ctx, K_KMPARZ);
-            Double pc = leggiNum(ctx, K_PCT);
-            Double ris = calcolaKwh100(ctx);
+            Double[] v = valori(ctx);
+            Double kt = v[0], kp = v[1], pc = v[2], ris = v[3];
 
             rv.setTextViewText(R.id.wc_kmtot, fmt(kt, 0));
             rv.setTextViewText(R.id.wc_kmparz, fmt(kp, 0));
@@ -153,10 +174,12 @@ public class ConsumoWidgetProvider extends AppWidgetProvider {
             rv.setOnClickPendingIntent(R.id.wc_kmparz, apriCampo(ctx, "kmparz", 12));
             rv.setOnClickPendingIntent(R.id.wc_pct, apriCampo(ctx, "pct", 13));
 
-            // tocco sul risultato -> azzera i dati inseriti
+            rv.setOnClickPendingIntent(R.id.wc_ris, apriCampo(ctx, "kwh100", 15));
+
+            // tocco sul titolo -> azzera i dati inseriti
             Intent az = new Intent(ctx, ConsumoWidgetProvider.class);
             az.setAction(ACTION_AZZERA);
-            rv.setOnClickPendingIntent(R.id.wc_ris, PendingIntent.getBroadcast(ctx, 14, az,
+            rv.setOnClickPendingIntent(R.id.wc_titolo, PendingIntent.getBroadcast(ctx, 14, az,
                     PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
 
             mgr.updateAppWidget(id, rv);

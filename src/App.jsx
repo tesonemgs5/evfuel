@@ -884,17 +884,35 @@ export default function App() {
   const [mesiAperti, setMesiAperti] = useState({});
   const [showConsumo, setShowConsumo] = useState(false);
   const consumoRef = useRef(null);
-  // Verifica consumo: un tocco fuori dal pannello (tranne la lente) lo chiude
+  // Verifica consumo: un tocco fuori dal pannello (tranne la lente) lo chiude.
+  // Si ascolta il CLICK (dito gia' sollevato) e la chiusura avviene dopo una breve
+  // pausa: il pulsante premuto (es. il mese) funziona normalmente e il cambio di
+  // layout non fa partire altri pulsanti. Dopo la chiusura i tocchi sono ignorati
+  // per qualche millisecondo.
+  const bloccoTocchiFino = useRef(0);
+  useEffect(() => {
+    const blocca = (e) => {
+      if (Date.now() < bloccoTocchiFino.current) { e.preventDefault(); e.stopPropagation(); }
+    };
+    document.addEventListener('click', blocca, true);
+    return () => document.removeEventListener('click', blocca, true);
+  }, []);
   useEffect(() => {
     if (!showConsumo) return;
+    let timer = null;
     const fuori = (e) => {
       const t = e.target;
       if (consumoRef.current && consumoRef.current.contains(t)) return;
       if (t && t.closest && t.closest('[data-consumo-toggle]')) return;
-      setShowConsumo(false);
+      if (timer) return;
+      timer = setTimeout(() => setShowConsumo(false), 150);
     };
-    document.addEventListener('pointerdown', fuori, true);
-    return () => document.removeEventListener('pointerdown', fuori, true);
+    document.addEventListener('click', fuori, true);
+    return () => {
+      document.removeEventListener('click', fuori, true);
+      if (timer) clearTimeout(timer);
+      bloccoTocchiFino.current = Date.now() + 350;
+    };
   }, [showConsumo]);
   const [openSec,    setOpenSec]    = useState({ veicolo: true, preset: false, sheets: false, supabase: false, danger: false, archivio: false, aggiornamenti: false });
   const { toast, show: showToast }  = useToast();

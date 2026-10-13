@@ -4,6 +4,5 @@
   "git.rebaseWhenSync": true,
   "git.confirmSync": false,
   "git.enableSmartCommit": true,
-  "git.showActionButton": { "commit": true, "publish": true, "sync": false },
-  "git.countBadge": "off"
+  "task.allowAutomaticTasks": "on"
 }

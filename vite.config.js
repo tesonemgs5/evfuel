@@ -52,11 +52,38 @@ function calcolaNumeroBuild() {
   }
 }
 
-export default defineConfig({
+// Numero build = numero run di GitHub Actions (quello di "EVFuel 6.x.y#NN").
+// - su Actions (APK): GITHUB_RUN_NUMBER
+// - su Vercel: lo cerca via API GitHub dal commit (VERCEL_GIT_COMMIT_SHA); per repo
+//   privato serve la variabile GH_TOKEN su Vercel. Se non lo trova, conteggio commit.
+async function numeroBuildActions() {
+  if (process.env.GITHUB_RUN_NUMBER) return process.env.GITHUB_RUN_NUMBER
+  const sha = process.env.VERCEL_GIT_COMMIT_SHA
+  const repo = process.env.GITHUB_REPOSITORY
+    || (process.env.VERCEL_GIT_REPO_OWNER && process.env.VERCEL_GIT_REPO_SLUG
+        ? `${process.env.VERCEL_GIT_REPO_OWNER}/${process.env.VERCEL_GIT_REPO_SLUG}` : '')
+  if (sha && repo) {
+    const headers = { Accept: 'application/vnd.github+json' }
+    if (process.env.GH_TOKEN) headers.Authorization = `Bearer ${process.env.GH_TOKEN}`
+    for (let i = 0; i < 6; i++) {
+      try {
+        const r = await fetch(`https://api.github.com/repos/${repo}/actions/runs?head_sha=${sha}&per_page=5`, { headers })
+        if (r.ok) {
+          const run = ((await r.json()).workflow_runs || []).find(x => x.name === 'Build APK') || null
+          if (run) return String(run.run_number)
+        }
+      } catch { /* riprova */ }
+      await new Promise(res => setTimeout(res, 5000))
+    }
+  }
+  return calcolaNumeroBuild()
+}
+
+export default defineConfig(async () => ({
   define: {
     __APP_VERSION__: JSON.stringify(calcolaVersioneBuild()),
-    // Numero di build (conteggio commit): uguale su PC, Vercel e APK.
-    __BUILD_NUM__: JSON.stringify(calcolaNumeroBuild()),
+    // Numero di build Actions: uguale su Vercel, APK e release.
+    __BUILD_NUM__: JSON.stringify(await numeroBuildActions()),
   },
   plugins: [
     react(),
@@ -98,4 +125,4 @@ export default defineConfig({
       }
     })
   ]
-})
+}))

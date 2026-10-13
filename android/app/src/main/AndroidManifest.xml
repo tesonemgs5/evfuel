@@ -49,6 +49,28 @@
                 android:resource="@xml/evfuel_widget_info" />
         </receiver>
 
+        <!-- Finestra di inserimento valore (aperta dal widget "Verifica consumo") -->
+        <activity
+            android:name=".InserisciValoreActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask"
+            android:taskAffinity=""
+            android:theme="@style/AppTheme.VerificaConsumo" />
+
+        <!-- Widget "EVFuel Verifica consumo" -->
+        <receiver
+            android:name=".ConsumoWidgetProvider"
+            android:exported="true"
+            android:label="EVFuel Verifica consumo">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/evfuel_consumo_widget_info" />
+        </receiver>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

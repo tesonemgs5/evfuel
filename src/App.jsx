@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { Capacitor } from '@capacitor/core';
 import { widgetDisponibile, inviaAlWidget, preparaDatiWidget } from './widget';
+import { ImpostazioniAggiornamenti, inApk } from './aggiornamenti';
 
 // Versione: A.GGG.HHMM + #NN (numero build GitHub Actions, se presente)
 const APP_VERSION = (typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev')
@@ -828,7 +829,7 @@ export default function App() {
   const [editIdx,    setEditIdx]    = useState(null);
   const [confirmIdx, setConfirmIdx] = useState(null);
   const [mesiAperti, setMesiAperti] = useState({});
-  const [openSec,    setOpenSec]    = useState({ veicolo: true, preset: false, sheets: false, supabase: false, danger: false, archivio: false });
+  const [openSec,    setOpenSec]    = useState({ veicolo: true, preset: false, sheets: false, supabase: false, danger: false, archivio: false, aggiornamenti: false });
   const { toast, show: showToast }  = useToast();
   // Stato rete REALE (non piu' un flag salvato che restava rosso finche' non
   // si toccava il pulsante): supabaseOffline = senza rete oppure server non
@@ -1531,6 +1532,19 @@ export default function App() {
               )}
             </div>
 
+            {inApk() && (
+              <div style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 16, overflow: 'hidden' }}>
+                <div onClick={() => toggleSec('aggiornamenti')} style={{ padding: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', color: theme.text }}>
+                  <span>🔔 Aggiornamenti app</span><span>{openSec.aggiornamenti ? '▲' : '▼'}</span>
+                </div>
+                {openSec.aggiornamenti && (
+                  <div style={{ padding: 14, borderTop: `1px solid ${theme.border}` }}>
+                    <ImpostazioniAggiornamenti T={theme} />
+                  </div>
+                )}
+              </div>
+            )}
+
             <div style={{ background: theme.bg2, border: '1px solid rgba(239,68,68,0.2)', borderRadius: 16, overflow: 'hidden' }}>
               <div onClick={() => toggleSec('danger')} style={{ padding: 14, fontWeight: 700, cursor: 'pointer', color: '#ef4444', display: 'flex', justifyContent: 'space-between' }}>
                 <span>⚠️ Zona Pericolo</span><span>{openSec.danger ? '▲' : '▼'}</span>
@@ -1563,7 +1577,7 @@ export default function App() {
             </button>
 
             <div style={{ textAlign: 'center', marginTop: 12, marginBottom: 24, fontSize: '0.75rem', color: theme.text2, fontFamily: 'monospace', letterSpacing: '0.05em' }}>
-              Versione v{APP_VERSION}
+              Versione {APP_VERSION}
             </div>
 
           </div>

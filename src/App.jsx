@@ -661,6 +661,59 @@ function ConfirmDialog({ messaggio, onConfirm, onCancel, theme }) {
   );
 }
 
+// Verifica consumo: dati km totali / km parziali / batteria attuale, calcola il kWh/100km
+// rispetto all'ultima ricarica salvata (km e % dopo la ricarica). Non salva nulla.
+function VerificaConsumo({ ricariche, settings, T }) {
+  const [fPct, setFPct] = useState('');
+  const [fKmTot, setFKmTot] = useState('');
+  const [fKmParz, setFKmParz] = useState('');
+
+  const conKm = ricariche.filter(r => r.km && r.km > 0);
+  const ultima = conKm.length ? conKm.reduce((a, b) => (b.km >= a.km ? b : a)) : null;
+  const kmBase = ultima ? ultima.km : 0;
+
+  const onKmTot = (v) => {
+    setFKmTot(v);
+    const n = parseIt(v);
+    setFKmParz(Number.isFinite(n) ? toInputStr(Math.max(0, n - kmBase)) : '');
+  };
+  const onKmParz = (v) => {
+    setFKmParz(v);
+    const n = parseIt(v);
+    setFKmTot(Number.isFinite(n) ? toInputStr(kmBase + n, true) : '');
+  };
+
+  const pct = parseIt(fPct);
+  const parz = parseIt(fKmParz);
+  const kwhUsatiStima = ultima && Number.isFinite(pct) ? ((ultima.pctDopo - pct) / 100) * settings.batteria : NaN;
+  const kwh100 = Number.isFinite(kwhUsatiStima) && kwhUsatiStima >= 0 && parz > 0 ? (kwhUsatiStima / parz) * 100 : null;
+
+  const conParz = ricariche.filter(r => r.kmParziali && r.kmParziali > 0);
+  const sumKm = conParz.reduce((a, r) => a + r.kmParziali, 0);
+  const sumKwh = conParz.reduce((a, r) => a + kwhUsati(r), 0);
+  const media = sumKm > 0 ? (sumKwh / sumKm) * 100 : null;
+
+  const lbl = { fontSize: '0.65rem', color: T.text2 };
+  if (!ultima) return <div style={{ fontSize: '0.8rem', color: T.text2 }}>Serve almeno una ricarica salvata con i km totali.</div>;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ fontSize: '0.7rem', color: T.text2 }}>
+        Ultima ricarica salvata: <b>{fmtN(ultima.km, 0)} km</b>, batteria al <b>{fmtN(ultima.pctDopo, 0)}%</b>.
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <div><label style={lbl}>Batteria attuale (%)</label><NumInput value={fPct} onChange={setFPct} decimals={false} style={inputSt(T)} /></div>
+        <div><label style={lbl}>kWh/100km</label><input readOnly value={kwh100 !== null ? fmtN(kwh100, 1) : ''} placeholder="—" style={{ ...inputSt(T), fontWeight: 800, color: T.accent }} /></div>
+        <div><label style={lbl}>Km totali</label><NumInput value={fKmTot} onChange={onKmTot} group decimals={false} style={inputSt(T)} /></div>
+        <div><label style={lbl}>Km parziali</label><NumInput value={fKmParz} onChange={onKmParz} decimals={false} style={inputSt(T)} /></div>
+      </div>
+      {Number.isFinite(kwhUsatiStima) && kwhUsatiStima >= 0 && (
+        <div style={{ fontSize: '0.7rem', color: T.text2 }}>Energia usata dall'ultima ricarica: circa <b>{fmtN(kwhUsatiStima, 1)} kWh</b></div>
+      )}
+      {media !== null && <div style={{ fontSize: '0.7rem', color: T.text2 }}>Media del registro: <b>{fmtN(media, 1)} kWh/100km</b></div>}
+    </div>
+  );
+}
+
 function FormRicarica({ settings, ricariche, editIdx, onSave, onCancel, showToast, theme }) {
   const T = theme || S;
   const ex = editIdx !== null ? ricariche[editIdx] : null;
@@ -829,7 +882,7 @@ export default function App() {
   const [editIdx,    setEditIdx]    = useState(null);
   const [confirmIdx, setConfirmIdx] = useState(null);
   const [mesiAperti, setMesiAperti] = useState({});
-  const [openSec,    setOpenSec]    = useState({ veicolo: true, preset: false, sheets: false, supabase: false, danger: false, archivio: false, aggiornamenti: false });
+  const [openSec,    setOpenSec]    = useState({ veicolo: true, preset: false, sheets: false, supabase: false, danger: false, archivio: false, aggiornamenti: false, consumo: false });
   const { toast, show: showToast }  = useToast();
   // Stato rete REALE (non piu' un flag salvato che restava rosso finche' non
   // si toccava il pulsante): supabaseOffline = senza rete oppure server non
@@ -1449,6 +1502,17 @@ export default function App() {
 
         {view === 'settings' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+            <div style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 16, overflow: 'hidden' }}>
+              <div onClick={() => toggleSec('consumo')} style={{ padding: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', color: theme.text }}>
+                <span>🔍 Verifica consumo</span><span>{openSec.consumo ? '▲' : '▼'}</span>
+              </div>
+              {openSec.consumo && (
+                <div style={{ padding: 14, borderTop: `1px solid ${theme.border}` }}>
+                  <VerificaConsumo ricariche={ricariche} settings={settings} T={theme} />
+                </div>
+              )}
+            </div>
 
             <div style={{ background: theme.bg2, border: `1px solid ${theme.border}`, borderRadius: 16, overflow: 'hidden' }}>
               <div onClick={() => toggleSec('veicolo')} style={{ padding: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', color: theme.text }}>

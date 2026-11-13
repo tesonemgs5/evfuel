@@ -1,0 +1,25 @@
+name: Anti-disattivazione GitHub
+
+# GitHub disattiva i workflow programmati dopo 60 giorni senza attività nel repo.
+# Il giorno 1 di ogni mese (03:00 UTC = 04:00 in Italia in inverno) si riattivano via API se stesso e l'anti-pausa Supabase: questo azzera il conteggio dei 60 giorni.
+on:
+  schedule:
+    - cron: "0 3 1 * *"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  riattiva:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Riattiva i workflow programmati
+        run: |
+          for WF in anti-disattivazione-github.yml anti-pausa-supabase.yml; do
+            gh workflow enable "$WF" && echo "Riattivato: $WF"
+          done

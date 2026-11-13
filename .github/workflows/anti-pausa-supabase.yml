@@ -1,0 +1,33 @@
+name: Anti-pausa Supabase
+
+# Una richiesta a Supabase domenica e mercoledì alle 03:00 UTC: evita la pausa del piano gratuito per inattività
+# e, se Supabase non risponde, il lavoro fallisce e GitHub manda un avviso.
+# URL e chiave pubblica (anon) sono quelli già presenti in src/App.jsx.
+on:
+  schedule:
+    - cron: "0 3 * * 0,3"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  controllo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: src/App.jsx
+          sparse-checkout-cone-mode: false
+      - name: Richiesta a Supabase
+        run: |
+          SUPA_URL=$(sed -n 's/^const SUPABASE_URL = "\(.*\)";/\1/p' src/App.jsx | head -1)
+          SUPA_KEY=$(sed -n 's/^const SUPABASE_KEY = "\(.*\)";/\1/p' src/App.jsx | head -1)
+          if [ -z "$SUPA_URL" ] || [ -z "$SUPA_KEY" ]; then echo "URL o chiave non trovati in src/App.jsx"; exit 1; fi
+          CODE=$(curl -s -o /tmp/risposta.txt -w "%{http_code}" \
+            -H "apikey: $SUPA_KEY" -H "Authorization: Bearer $SUPA_KEY" \
+            "$SUPA_URL/rest/v1/ricariche?select=id&limit=1")
+          echo "Risposta di Supabase: HTTP $CODE"
+          if [ "$CODE" -lt 200 ] || [ "$CODE" -ge 300 ]; then
+            echo "Supabase non risponde come previsto"; head -c 300 /tmp/risposta.txt; exit 1
+          fi
